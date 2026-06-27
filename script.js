@@ -22,6 +22,10 @@ function headerOffset() {
   return document.querySelector('.site-header')?.offsetHeight ?? 0;
 }
 
+function isCompactViewport() {
+  return window.matchMedia('(max-width: 820px), (max-height: 720px) and (pointer: coarse)').matches;
+}
+
 function nearestSectionIndex() {
   const header = headerOffset();
   const currentSlideTop = window.scrollY + header;
@@ -57,6 +61,7 @@ function slideToSection(index) {
 }
 
 function stepSection(direction) {
+  if (isCompactViewport()) return;
   if (isSectionScrolling) return;
   setActiveSection(nearestSectionIndex());
   slideToSection(currentSectionIndex + direction);
@@ -65,6 +70,7 @@ function stepSection(direction) {
 window.addEventListener(
   'wheel',
   (event) => {
+    if (isCompactViewport()) return;
     if (Math.abs(event.deltaY) < 18 || event.ctrlKey) return;
     event.preventDefault();
     stepSection(event.deltaY > 0 ? 1 : -1);
@@ -73,6 +79,7 @@ window.addEventListener(
 );
 
 window.addEventListener('keydown', (event) => {
+  if (isCompactViewport()) return;
   const nextKeys = ['ArrowDown', 'PageDown', 'Space'];
   const previousKeys = ['ArrowUp', 'PageUp'];
 
@@ -99,6 +106,10 @@ window.addEventListener(
 window.addEventListener(
   'touchend',
   (event) => {
+    if (isCompactViewport()) {
+      touchStartedInCarousel = false;
+      return;
+    }
     if (touchStartedInCarousel) {
       touchStartedInCarousel = false;
       return;
