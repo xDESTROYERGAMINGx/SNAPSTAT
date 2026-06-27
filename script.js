@@ -23,7 +23,7 @@ function headerOffset() {
 }
 
 function isCompactViewport() {
-  return window.matchMedia('(max-width: 820px), (max-height: 720px) and (pointer: coarse)').matches;
+  return window.matchMedia('(max-width: 1100px), (max-height: 780px) and (pointer: coarse)').matches;
 }
 
 function nearestSectionIndex() {
