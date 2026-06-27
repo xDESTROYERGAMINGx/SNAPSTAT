@@ -18,6 +18,7 @@
       </a>
       <nav class="nav-links" aria-label="Main navigation">
         <a href="#features">Features</a>
+        <a href="#customize">Customize</a>
         <a href="#instructions">Instructions</a>
         <a href="#download">Download</a>
       </nav>
@@ -33,7 +34,7 @@
             review every answer, and export organized reports with graphs.
           </p>
           <div class="hero-actions">
-            <a class="button button-primary" href="downloads/.apk" download>
+            <a class="button button-primary" href="https://github.com/xDESTROYERGAMINGx/SnapStat/releases/latest">
               Download APK
             </a>
             <a class="button button-secondary" href="#how-it-works">See how it works</a>
@@ -109,17 +110,22 @@
         </div>
       </section>
 
-      <section class="showcase-section">
-        <div class="showcase-copy">
-          <p class="eyebrow">Main screen</p>
-          <h2>Clear actions for field work</h2>
+      <section id="customize" class="customize-section">
+        <div class="customize-heading">
+          <p class="eyebrow">Custom paper setup</p>
+          <h2>Users can customize the questionnaire before printing.</h2>
           <p>
-            The app starts with the three tasks users need most: capture a survey,
-            open previous sessions, or download the printable form.
+            SnapStat lets users prepare the title, response scale, and instruction
+            box, then previews the exact paper form before it is downloaded.
           </p>
         </div>
-        <div class="showcase-image">
-          <img src="assets/branding/capture.jpg" alt="SnapStat app main screen">
+
+        <div class="customize-board">
+          <img
+            class="custom-collage"
+            src="assets/branding/custom-paper-collage.png"
+            alt="Research title, response scale, and instruction box customization connected to the survey form preview"
+          >
         </div>
       </section>
 
@@ -178,63 +184,69 @@
           <p class="eyebrow">Scan instructions</p>
           <h2>Capture the questionnaire the right way</h2>
         </div>
-        <div class="instruction-gallery">
-          <article>
-            <img src="assets/instructions/STEP1.png" alt="Use the downloaded SnapStat form">
-            <h3>Use the downloaded form</h3>
-          </article>
-          <article>
-            <img src="assets/instructions/STEP2.png" alt="Keep all corner squares visible">
-            <h3>Show all corners</h3>
-          </article>
-          <article>
-            <img src="assets/instructions/STEP3.png" alt="Flatten the paper before scanning">
-            <h3>Flatten the paper</h3>
-          </article>
-          <article>
-            <img src="assets/instructions/STEP4.png" alt="Use even lighting">
-            <h3>Use even lighting</h3>
-          </article>
-          <article>
-            <img src="assets/instructions/STEP5.png" alt="Fill the screen with the form">
-            <h3>Fill the screen</h3>
-          </article>
-          <article>
-            <img src="assets/instructions/STEP6.png" alt="Hold the phone steady">
-            <h3>Hold steady</h3>
-          </article>
-          <article>
-            <img src="assets/instructions/STEP7.png" alt="Shade only one answer per question">
-            <h3>One answer only</h3>
-          </article>
-          <article>
-            <img src="assets/instructions/STEP8.png" alt="Keep marks away from alignment markers">
-            <h3>Keep markers clean</h3>
-          </article>
-          <article>
-            <img src="assets/instructions/STEP9.png" alt="Use ballpen or marker when shading answers">
-            <h3>Use ballpen or marker</h3>
-          </article>
+        <div class="instruction-carousel" aria-label="Scan instruction carousel">
+          <div class="instruction-viewport">
+            <div class="instruction-gallery">
+              <article>
+                <img src="assets/instructions/STEP1.png" alt="Use the downloaded SnapStat form">
+                <h3>Use the downloaded form</h3>
+              </article>
+              <article>
+                <img src="assets/instructions/STEP2.png" alt="Keep all corner squares visible">
+                <h3>Show all corners</h3>
+              </article>
+              <article>
+                <img src="assets/instructions/STEP3.png" alt="Flatten the paper before scanning">
+                <h3>Flatten the paper</h3>
+              </article>
+              <article>
+                <img src="assets/instructions/STEP4.png" alt="Use even lighting">
+                <h3>Use even lighting</h3>
+              </article>
+              <article>
+                <img src="assets/instructions/STEP5.png" alt="Fill the screen with the form">
+                <h3>Fill the screen</h3>
+              </article>
+              <article>
+                <img src="assets/instructions/STEP6.png" alt="Hold the phone steady">
+                <h3>Hold steady</h3>
+              </article>
+              <article>
+                <img src="assets/instructions/STEP7.png" alt="Shade only one answer per question">
+                <h3>One answer only</h3>
+              </article>
+              <article>
+                <img src="assets/instructions/STEP8.png" alt="Keep marks away from alignment markers">
+                <h3>Keep markers clean</h3>
+              </article>
+              <article>
+                <img src="assets/instructions/STEP9.png" alt="Use ballpen or marker when shading answers">
+                <h3>Use ballpen or marker</h3>
+              </article>
+            </div>
+          </div>
         </div>
       </section>
 
       <section id="download" class="download-section">
-        <div>
-          <p class="eyebrow">Install SnapStat</p>
-          <h2>Download the Android APK</h2>
-          <p>
-            Install the current debug build on an Android device. Keep the app
-            local to your phone, then export files only when you choose to share them.
-          </p>
-        </div>
-        <div class="download-card">
-          <img src="assets/branding/snapstat_logo.png" alt="">
-          <h3>SnapStat APK</h3>
-          <p>Android 10 or newer</p>
-          <a class="button button-primary" href="downloads/apk" download>
-            Download APK
-          </a>
-          <small>File: SnapStat-debug.apk</small>
+        <div class="download-panel">
+          <div>
+            <p class="eyebrow">Install SnapStat</p>
+            <h2>Download the Android APK</h2>
+            <p>
+              Install the current debug build on an Android device. Keep the app
+              local to your phone, then export files only when you choose to share them.
+            </p>
+          </div>
+          <div class="download-card">
+            <img src="assets/branding/snapstat_logo.png" alt="">
+            <h3>SnapStat APK</h3>
+            <p>Android 10 or newer</p>
+            <a class="button button-primary" href="https://github.com/xDESTROYERGAMINGx/SnapStat/releases/latest">
+              Download APK
+            </a>
+            <small>Hosted on GitHub Releases</small>
+          </div>
         </div>
       </section>
     </main>
@@ -243,6 +255,12 @@
       <span>SnapStat</span>
       <span>Survey scanning, tallying, and reporting.</span>
     </footer>
+
+    <div class="instruction-lightbox" hidden>
+      <button class="lightbox-close" type="button" aria-label="Close fullscreen instruction"></button>
+      <img src="" alt="">
+      <p></p>
+    </div>
 
     <script src="script.js"></script>
   </body>
