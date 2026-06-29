@@ -87,6 +87,7 @@ a {
 .workflow-section,
 .customize-section,
 .form-section,
+.security-section,
 .download-section {
   height: var(--slide-height);
   min-height: var(--slide-height);
@@ -132,6 +133,7 @@ a {
 .workflow-section,
 .customize-section,
 .form-section,
+.security-section,
 .download-section {
   width: min(1180px, calc(100% - 36px));
   margin: 0 auto;
@@ -282,6 +284,7 @@ h3 {
 .workflow-section,
 .customize-section,
 .form-section,
+.security-section,
 .download-section {
   min-height: var(--slide-height);
   height: var(--slide-height);
@@ -526,6 +529,48 @@ h3 {
   align-items: center;
 }
 
+.security-section {
+  display: grid;
+  grid-template-columns: minmax(0, 0.92fr) minmax(300px, 1.08fr);
+  gap: clamp(28px, 5vw, 64px);
+  align-items: center;
+}
+
+.security-copy p {
+  max-width: 640px;
+  color: var(--snap-muted);
+  line-height: 1.6;
+}
+
+.security-note {
+  width: fit-content;
+  max-width: 640px;
+  margin-top: 22px;
+  padding: 14px 16px;
+  color: #23335d;
+  background: var(--snap-soft-blue);
+  border: 1px solid rgba(216, 222, 234, 0.92);
+  border-radius: 8px;
+  line-height: 1.48;
+}
+
+.security-proof {
+  padding: clamp(16px, 3vw, 26px);
+  background: rgba(255, 255, 255, 0.88);
+  border: 1px solid var(--snap-line);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+
+.security-proof img {
+  width: 100%;
+  max-height: min(44vh, 360px);
+  object-fit: contain;
+  background: var(--snap-surface);
+  border: 1px solid rgba(216, 222, 234, 0.9);
+  border-radius: 8px;
+}
+
 .form-preview {
   padding: 18px;
   background: var(--snap-surface);
@@ -767,6 +812,7 @@ h3 {
   .workflow-section,
   .customize-section,
   .form-section,
+  .security-section,
   .download-section {
     grid-template-columns: 1fr;
   }
@@ -804,6 +850,7 @@ h3 {
   .workflow-section,
   .customize-section,
   .form-section,
+  .security-section,
   .download-section {
     height: auto;
     min-height: auto;
@@ -839,6 +886,11 @@ h3 {
 
   .form-preview {
     width: min(100%, 390px);
+    justify-self: center;
+  }
+
+  .security-proof {
+    width: min(100%, 680px);
     justify-self: center;
   }
 
@@ -908,6 +960,7 @@ h3 {
   .workflow-section,
   .customize-section,
   .form-section,
+  .security-section,
   .download-section {
     height: auto;
     min-height: auto;
@@ -999,8 +1052,21 @@ h3 {
   }
 
   .workflow-section,
-  .form-section {
+  .form-section,
+  .security-section {
     gap: 22px;
+  }
+
+  .security-note {
+    width: 100%;
+  }
+
+  .security-proof {
+    padding: 12px;
+  }
+
+  .security-proof img {
+    max-height: none;
   }
 
   .workflow-list {

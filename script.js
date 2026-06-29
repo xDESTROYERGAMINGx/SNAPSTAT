@@ -9,7 +9,7 @@ downloadButtons.forEach((button) => {
 
 const snapSections = Array.from(
   document.querySelectorAll(
-    '.hero-section, .section-block, .customize-section, .workflow-section, .form-section, .download-section'
+    '.hero-section, .section-block, .customize-section, .workflow-section, .form-section, .security-section, .download-section'
   )
 );
 
