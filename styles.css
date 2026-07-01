@@ -55,6 +55,7 @@ body::before {
 }
 
 main {
+  padding-top: var(--header-height);
   overflow-x: hidden;
 }
 
@@ -69,9 +70,11 @@ a {
 }
 
 .site-header {
-  position: sticky;
+  position: fixed;
   top: 0;
-  z-index: 20;
+  left: 0;
+  right: 0;
+  z-index: 100;
   display: flex;
   align-items: center;
   justify-content: space-between;
