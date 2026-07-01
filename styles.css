@@ -652,7 +652,6 @@ h3 {
   flex: 0 0 100%;
   min-width: 100%;
   overflow: hidden;
-  cursor: zoom-in;
 }
 
 .instruction-gallery img {
@@ -671,77 +670,6 @@ h3 {
   margin: 0;
   padding: 10px 12px;
   font-size: 0.95rem;
-}
-
-.lightbox-close {
-  position: absolute;
-  z-index: 4;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--snap-line);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.92);
-  box-shadow: 0 12px 28px rgba(38, 55, 105, 0.16);
-  cursor: pointer;
-}
-
-.lightbox-close::before,
-.lightbox-close::after {
-  content: "";
-  position: absolute;
-}
-
-.instruction-lightbox {
-  position: fixed;
-  inset: 0;
-  z-index: 50;
-  display: grid;
-  grid-template-rows: minmax(0, 1fr) auto;
-  place-items: center;
-  gap: 16px;
-  padding: clamp(18px, 4vw, 48px);
-  background: rgba(12, 15, 24, 0.88);
-}
-
-.instruction-lightbox[hidden] {
-  display: none;
-}
-
-.instruction-lightbox img {
-  max-width: min(94vw, 980px);
-  max-height: 82vh;
-  object-fit: contain;
-  border-radius: 12px;
-  box-shadow: 0 26px 80px rgba(0, 0, 0, 0.34);
-}
-
-.instruction-lightbox p {
-  margin: 0;
-  color: #ffffff;
-  font-weight: 800;
-}
-
-.lightbox-close {
-  top: 18px;
-  right: 18px;
-  width: 46px;
-  height: 46px;
-}
-
-.lightbox-close::before,
-.lightbox-close::after {
-  width: 20px;
-  height: 3px;
-  background: var(--snap-ink);
-  border-radius: 999px;
-}
-
-.lightbox-close::before {
-  transform: rotate(45deg);
-}
-
-.lightbox-close::after {
-  transform: rotate(-45deg);
 }
 
 .download-section {

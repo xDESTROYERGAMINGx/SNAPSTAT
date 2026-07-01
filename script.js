@@ -139,10 +139,6 @@ document.querySelectorAll('a[href^="#"]').forEach((link) => {
 const carousel = document.querySelector('.instruction-carousel');
 const carouselTrack = carousel?.querySelector('.instruction-gallery');
 const carouselViewport = carousel?.querySelector('.instruction-viewport');
-const lightbox = document.querySelector('.instruction-lightbox');
-const lightboxImage = lightbox?.querySelector('img');
-const lightboxCaption = lightbox?.querySelector('p');
-const lightboxClose = lightbox?.querySelector('.lightbox-close');
 
 if (carousel && carouselTrack && carouselViewport) {
   const slideCount = carouselTrack.children.length;
@@ -153,7 +149,6 @@ if (carousel && carouselTrack && carouselViewport) {
   let dragStartX = 0;
   let dragDeltaX = 0;
   let baseTranslate = 0;
-  let didDrag = false;
 
   function getGap() {
     return Number.parseFloat(window.getComputedStyle(carouselTrack).gap) || 0;
@@ -209,7 +204,6 @@ if (carousel && carouselTrack && carouselViewport) {
 
   carouselViewport.addEventListener('pointerdown', (event) => {
     isDragging = true;
-    didDrag = false;
     dragStartX = event.clientX;
     dragDeltaX = 0;
     baseTranslate = -activeSlide * slideStep;
@@ -221,7 +215,6 @@ if (carousel && carouselTrack && carouselViewport) {
   carouselViewport.addEventListener('pointermove', (event) => {
     if (!isDragging) return;
     dragDeltaX = event.clientX - dragStartX;
-    if (Math.abs(dragDeltaX) > 6) didDrag = true;
     carouselTrack.style.transform = `translateX(${baseTranslate + dragDeltaX}px)`;
   });
 
@@ -250,41 +243,6 @@ if (carousel && carouselTrack && carouselViewport) {
   carouselViewport.addEventListener('mouseenter', pauseAutoplay);
   carouselViewport.addEventListener('mouseleave', () => {
     if (!isDragging) startAutoplay();
-  });
-
-  carouselTrack.addEventListener('click', (event) => {
-    if (didDrag && Math.abs(dragDeltaX) > 8) {
-      didDrag = false;
-      return;
-    }
-    didDrag = false;
-    const slide = event.target.closest('article');
-    const image = slide?.querySelector('img');
-    const caption = slide?.querySelector('h3')?.textContent ?? image?.alt ?? '';
-    if (!image || !lightbox || !lightboxImage || !lightboxCaption) return;
-    pauseAutoplay();
-    lightboxImage.src = image.src;
-    lightboxImage.alt = image.alt;
-    lightboxCaption.textContent = caption;
-    lightbox.hidden = false;
-  });
-
-  function closeLightbox() {
-    if (!lightbox || !lightboxImage || !lightboxCaption) return;
-    lightbox.hidden = true;
-    lightboxImage.src = '';
-    lightboxCaption.textContent = '';
-    startAutoplay();
-  }
-
-  lightboxClose?.addEventListener('click', closeLightbox);
-  lightbox?.addEventListener('click', (event) => {
-    if (event.target === lightbox) closeLightbox();
-  });
-
-  window.addEventListener('keydown', (event) => {
-    if (!lightbox || lightbox.hidden) return;
-    if (event.code === 'Escape') closeLightbox();
   });
 
   window.addEventListener('resize', measureCarousel);
