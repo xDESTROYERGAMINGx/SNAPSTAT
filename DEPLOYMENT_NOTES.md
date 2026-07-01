@@ -22,6 +22,6 @@ APK_DOWNLOAD_URL
 
 Its value should be the real HTTPS APK download URL from your GitHub Release.
 
-This keeps the GitHub APK link out of the website HTML and JavaScript, so it is not visible through normal Inspect Element on the page.
+This keeps the GitHub APK link out of the website HTML and JavaScript, so it is not visible through normal Inspect Element on the page. The function streams the APK through `/download` with APK download headers instead of redirecting visitors to GitHub.
 
 Important: if the website source repository is public, anyone who can see the repository can still see that `/download` exists. The real URL is protected only if it is stored in the Cloudflare environment variable, not committed into the website files.
