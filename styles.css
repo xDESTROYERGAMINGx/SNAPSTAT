@@ -1,6 +1,7 @@
 :root {
   --snap-blue: #315ef4;
   --snap-blue-dark: #2447bc;
+  --snap-red: #eb001f;
   --snap-bg: #e8eeff;
   --snap-gray: #f3f4f6;
   --snap-surface: #ffffff;
@@ -216,7 +217,7 @@ h3 {
 
 .button-primary {
   color: #ffffff;
-  background: var(--snap-blue);
+  background: var(--snap-red);
   box-shadow: 0 14px 30px rgba(49, 94, 244, 0.24);
 }
 
@@ -838,6 +839,7 @@ h3 {
   text-align: center;
 }
 
+
 .release-badge {
   display: inline-flex;
   align-items: center;
@@ -846,7 +848,7 @@ h3 {
   margin: 0 auto 14px;
   padding: 0 12px;
   color: #ffffff;
-  background: var(--snap-blue);
+  background: var(--snap-red);
   border-radius: 999px;
   box-shadow: 0 10px 22px rgba(49, 94, 244, 0.2);
   font-size: 0.74rem;
