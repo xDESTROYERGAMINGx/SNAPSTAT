@@ -9,7 +9,7 @@ downloadButtons.forEach((button) => {
 
 const snapSections = Array.from(
   document.querySelectorAll(
-    '.hero-section, .section-block, .customize-section, .workflow-section, .form-section, .security-section, .download-section'
+    '.hero-section, .section-block, .customize-section, .workflow-section, .form-section, .security-section, .updates-section, .download-section'
   )
 );
 
@@ -71,6 +71,7 @@ window.addEventListener(
   'wheel',
   (event) => {
     if (isCompactViewport()) return;
+    if (event.target.closest('.updates-carousel')) return;
     if (Math.abs(event.deltaY) < 18 || event.ctrlKey) return;
     event.preventDefault();
     stepSection(event.deltaY > 0 ? 1 : -1);
@@ -97,7 +98,9 @@ window.addEventListener('keydown', (event) => {
 window.addEventListener(
   'touchstart',
   (event) => {
-    touchStartedInCarousel = Boolean(event.target.closest('.instruction-carousel'));
+    touchStartedInCarousel = Boolean(
+      event.target.closest('.instruction-carousel, .updates-carousel')
+    );
     touchStartY = event.touches[0]?.clientY ?? 0;
   },
   { passive: true }
@@ -248,4 +251,134 @@ if (carousel && carouselTrack && carouselViewport) {
   window.addEventListener('resize', measureCarousel);
   measureCarousel();
   startAutoplay();
+}
+
+const updatesCarousel = document.querySelector('.updates-carousel');
+const updatesTrack = updatesCarousel?.querySelector('.updates-track');
+const updatesViewport = updatesCarousel?.querySelector('.updates-viewport');
+
+if (updatesCarousel && updatesTrack && updatesViewport) {
+  let updateOffset = 0;
+  let lastUpdateFrame = 0;
+  let isUpdatePaused = false;
+  let isUpdateDragging = false;
+  let updateDragStartY = 0;
+  let updateResumeTimer = null;
+  const updateSpeed = 30;
+
+  function getUpdateGap() {
+    return Number.parseFloat(window.getComputedStyle(updatesTrack).gap) || 0;
+  }
+
+  function getUpdateStep(card) {
+    if (!card) return 0;
+    return card.getBoundingClientRect().height + getUpdateGap();
+  }
+
+  function applyUpdateOffset() {
+    updatesTrack.style.transform = `translateY(${-updateOffset}px)`;
+  }
+
+  function normalizeUpdates() {
+    let firstCard = updatesTrack.firstElementChild;
+    let firstStep = getUpdateStep(firstCard);
+    while (firstCard && firstStep > 0 && updateOffset >= firstStep) {
+      updateOffset -= firstStep;
+      updatesTrack.appendChild(firstCard);
+      firstCard = updatesTrack.firstElementChild;
+      firstStep = getUpdateStep(firstCard);
+    }
+
+    while (updateOffset < 0) {
+      const lastCard = updatesTrack.lastElementChild;
+      const lastStep = getUpdateStep(lastCard);
+      if (!lastCard || lastStep <= 0) break;
+      updatesTrack.prepend(lastCard);
+      updateOffset += lastStep;
+    }
+  }
+
+  function measureUpdates() {
+    normalizeUpdates();
+    applyUpdateOffset();
+  }
+
+  function pauseUpdateAutoplay() {
+    isUpdatePaused = true;
+    window.clearTimeout(updateResumeTimer);
+  }
+
+  function resumeUpdateAutoplaySoon(delay = 900) {
+    window.clearTimeout(updateResumeTimer);
+    updateResumeTimer = window.setTimeout(() => {
+      if (!isUpdateDragging) isUpdatePaused = false;
+    }, delay);
+  }
+
+  function moveUpdatesBy(delta) {
+    updateOffset += delta;
+    normalizeUpdates();
+    applyUpdateOffset();
+  }
+
+  function animateUpdates(timestamp) {
+    if (!lastUpdateFrame) lastUpdateFrame = timestamp;
+    const elapsed = timestamp - lastUpdateFrame;
+    lastUpdateFrame = timestamp;
+
+    if (!isUpdatePaused && !isUpdateDragging) {
+      moveUpdatesBy((updateSpeed * elapsed) / 1000);
+    }
+
+    window.requestAnimationFrame(animateUpdates);
+  }
+
+  updatesViewport.addEventListener(
+    'wheel',
+    (event) => {
+      if (Math.abs(event.deltaY) < 8 || event.ctrlKey) return;
+      event.preventDefault();
+      event.stopPropagation();
+      pauseUpdateAutoplay();
+      moveUpdatesBy(event.deltaY * 0.9);
+      resumeUpdateAutoplaySoon();
+    },
+    { passive: false }
+  );
+
+  updatesViewport.addEventListener('pointerdown', (event) => {
+    isUpdateDragging = true;
+    updateDragStartY = event.clientY;
+    pauseUpdateAutoplay();
+    updatesTrack.classList.add('is-dragging');
+    updatesViewport.setPointerCapture(event.pointerId);
+  });
+
+  updatesViewport.addEventListener('pointermove', (event) => {
+    if (!isUpdateDragging) return;
+    const delta = event.clientY - updateDragStartY;
+    updateDragStartY = event.clientY;
+    moveUpdatesBy(-delta);
+  });
+
+  function finishUpdateDrag(event) {
+    if (!isUpdateDragging) return;
+    isUpdateDragging = false;
+    updatesTrack.classList.remove('is-dragging');
+    if (updatesViewport.hasPointerCapture?.(event.pointerId)) {
+      updatesViewport.releasePointerCapture(event.pointerId);
+    }
+    resumeUpdateAutoplaySoon();
+  }
+
+  updatesViewport.addEventListener('pointerup', finishUpdateDrag);
+  updatesViewport.addEventListener('pointercancel', finishUpdateDrag);
+  updatesViewport.addEventListener('mouseenter', pauseUpdateAutoplay);
+  updatesViewport.addEventListener('mouseleave', () => {
+    if (!isUpdateDragging) resumeUpdateAutoplaySoon(120);
+  });
+
+  window.addEventListener('resize', measureUpdates);
+  measureUpdates();
+  window.requestAnimationFrame(animateUpdates);
 }
