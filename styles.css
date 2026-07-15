@@ -217,7 +217,7 @@ h3 {
 
 .button-primary {
   color: #ffffff;
-  background: var(--snap-red);
+  background: var(--snap-blue);
   box-shadow: 0 14px 30px rgba(49, 94, 244, 0.24);
 }
 
@@ -848,7 +848,7 @@ h3 {
   margin: 0 auto 14px;
   padding: 0 12px;
   color: #ffffff;
-  background: var(--snap-red);
+  background: var(--snap-blue);
   border-radius: 999px;
   box-shadow: 0 10px 22px rgba(49, 94, 244, 0.2);
   font-size: 0.74rem;
