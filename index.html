@@ -2,462 +2,420 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>SnapStat</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta
       name="description"
-      content="SnapStat scans paper Likert survey forms, tallies responses, and exports survey reports."
+      content="SnapStat turns shaded paper surveys into reviewed, organized, export-ready results."
     >
-    <link rel="icon" type="image/png" href="assets/branding/snapstat_logo.png">
-    <link rel="apple-touch-icon" href="assets/branding/snapstat_logo.png">
-    <link rel="stylesheet" href="styles.css">
+    <meta name="theme-color" content="#e8eeff">
+    <title>SnapStat — Paper In. Answers Out.</title>
+    <link rel="icon" href="assets/branding/snapstat_logo.png">
+    <script src="theme-init.js?v=20260718a"></script>
+    <link rel="stylesheet" href="https://unpkg.com/lenis@1.3.25/dist/lenis.css">
+    <link rel="stylesheet" href="styles.css?v=20260718s">
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ScrollTrigger.min.js" defer></script>
+    <script src="https://unpkg.com/lenis@1.3.25/dist/lenis.min.js" defer></script>
+    <script src="script.js?v=20260718p" defer></script>
   </head>
-  <body>
+  <body class="is-loading">
+    <div class="preloader" aria-hidden="true">
+      <div class="preloader-shell">
+        <div class="preloader-mark">
+          <img src="assets/branding/snapstat_logo.png" alt="">
+        </div>
+        <div class="preloader-copy">
+          <p>Paper survey intelligence</p>
+          <div class="preloader-word" aria-label="SnapStat">
+            <span>S</span><span>n</span><span>a</span><span>p</span><span>S</span><span>t</span><span>a</span><span>t</span>
+          </div>
+          <div class="preloader-status">
+            <span>Align</span><i></i><span>Read</span><i></i><span>Organize</span>
+          </div>
+        </div>
+        <div class="preloader-line"><span></span></div>
+      </div>
+    </div>
+
+    <div class="cursor cursor-dot" aria-hidden="true"></div>
+    <div class="cursor cursor-ring" aria-hidden="true"></div>
+
     <header class="site-header">
-      <a class="brand" href="#top" aria-label="SnapStat home">
-        <img src="assets/branding/snapstat1_logo.png" alt="" width="44" height="44">
+      <a class="brand magnetic" href="#home" aria-label="SnapStat home">
+        <img src="assets/branding/snapstat3_logo.png" alt="">
         <span>SnapStat</span>
       </a>
-      <nav class="nav-links" aria-label="Main navigation">
-        <a href="#features">Features</a>
-        <a href="#customize">Customize</a>
-        <a href="#instructions">Instructions</a>
-        <a href="#download">Download</a>
-      </nav>
+
+      <div class="header-note" aria-hidden="true">
+        Paper survey scanner<br>
+        Android application
+      </div>
+
+      <div class="header-actions">
+        <label class="theme-switch">
+          <input
+            class="theme-toggle theme-checkbox"
+            type="checkbox"
+            role="switch"
+            aria-label="Switch to dark mode"
+          >
+        </label>
+
+        <button
+          class="menu-toggle"
+          type="button"
+          aria-expanded="false"
+          aria-controls="site-menu"
+          aria-label="Open site menu"
+        >
+          <span class="menu-toggle-label">Menu</span>
+          <span class="menu-toggle-bars" aria-hidden="true">
+            <i class="menu-bar menu-bar-one"></i>
+            <i class="menu-bar menu-bar-two"></i>
+            <i class="menu-bar menu-bar-three"></i>
+          </span>
+        </button>
+      </div>
     </header>
 
-    <main id="top">
-      <section class="hero-section">
+    <div class="menu-overlay" id="site-menu" aria-hidden="true">
+      <div class="menu-background-word" aria-hidden="true">SNAPSTAT</div>
+      <nav aria-label="Site navigation">
+        <a href="#home"><span>Home</span><small>Meet SnapStat</small></a>
+        <a href="#workflow"><span>Workflow</span><small>Form to findings</small></a>
+        <a href="#customize"><span>Customize</span><small>Build your survey</small></a>
+        <a href="#instructions"><span>Instructions</span><small>Scan with confidence</small></a>
+        <a href="#download"><span>Download</span><small>Android application</small></a>
+      </nav>
+      <div class="menu-meta">
+        <p>Designed for researchers, students, educators, and field teams.</p>
+        <p>Android 10 or newer</p>
+      </div>
+    </div>
+
+    <main>
+      <section class="hero section-dark" id="home">
+        <div class="hero-grid" aria-hidden="true"></div>
+        <div class="hero-glow hero-glow-one" aria-hidden="true"></div>
+        <div class="hero-glow hero-glow-two" aria-hidden="true"></div>
+
         <div class="hero-copy">
-          <p class="eyebrow">Paper survey scanner</p>
-          <h1>
-            <span class="copy-desktop">Scan shaded survey forms and get tallied results faster.</span>
-            <span class="copy-mobile">Scan surveys. Get results.</span>
+          <p class="eyebrow reveal">Paper survey intelligence</p>
+          <h1 class="display-title split-text">
+            <span>Paper in</span>
+            <span>Answers out</span>
           </h1>
-          <p class="lead">
-            <span class="copy-desktop">
-              SnapStat helps users download a ready survey form, capture responses,
-              review every answer, and export organized reports with graphs.
-            </span>
-            <span class="copy-mobile">
-              Capture paper answers, review them, and export reports.
-            </span>
-          </p>
-          <div class="hero-actions">
-            <a class="button button-primary" href="#download">
-              Download APK
+          <div class="hero-bottom reveal">
+            <p>
+              Capture shaded forms, verify every response, and export organized
+              results without sending survey data to the cloud.
+            </p>
+            <a class="round-link magnetic" href="#workflow">
+              <span>Explore<br>SnapStat</span>
+              <b aria-hidden="true">↘</b>
             </a>
-            <a class="button button-secondary" href="#how-it-works">See how it works</a>
-          </div>
-          <div class="device-note">
-            <span class="copy-desktop">
-              <strong>Android 10 minimum.</strong>
-              Newer phones and stronger chips are recommended. Older phones may increase scanning time.
-            </span>
-            <span class="copy-mobile">
-              <strong>Android 10+.</strong> Newer phones scan faster.
-            </span>
           </div>
         </div>
 
-        <div class="hero-visual" aria-label="SnapStat app home screen preview">
-          <img src="assets/branding/capture.jpg" alt="SnapStat home screen with Capture Survey, History, and Download Survey buttons">
-        </div>
-      </section>
-
-      <section class="quick-strip" aria-label="SnapStat highlights">
-        <div>
-          <strong>Scan</strong>
-          <span>Capture shaded paper forms</span>
-        </div>
-        <div>
-          <strong>Review</strong>
-          <span>Check each response before export</span>
-        </div>
-        <div>
-          <strong>Report</strong>
-          <span>Export Excel and Word results</span>
-        </div>
-        <div>
-          <strong>Local</strong>
-          <span>Documents stay on the phone</span>
-        </div>
-      </section>
-
-      <section id="features" class="section-block">
-        <div class="section-heading">
-          <p class="eyebrow">What the app does</p>
-          <h2>
-            <span class="copy-desktop">Built for paper-based survey work</span>
-            <span class="copy-mobile">Everything you need</span>
-          </h2>
-        </div>
-        <div class="feature-grid">
-          <article class="feature-card">
-            <span class="feature-icon icon-form"></span>
-            <h3>Download a survey form</h3>
-            <p>
-              <span class="copy-desktop">
-                Generate a printable 30-question form with the response scale,
-                research title, and instruction box prepared for scanning.
-              </span>
-              <span class="copy-mobile">Create a ready-to-print 30-question form.</span>
-            </p>
-          </article>
-          <article class="feature-card">
-            <span class="feature-icon icon-scan"></span>
-            <h3>Capture and tally</h3>
-            <p>
-              <span class="copy-desktop">
-                Use the camera scanner, preview the captured sheet, and let SnapStat
-                read the shaded answers with row and column alignment markers.
-              </span>
-              <span class="copy-mobile">Scan shaded answers automatically.</span>
-            </p>
-          </article>
-          <article class="feature-card">
-            <span class="feature-icon icon-review"></span>
-            <h3>Review responses</h3>
-            <p>
-              <span class="copy-desktop">
-                Check individual responses, rename records, edit answers when needed,
-                and keep invalid or uncertain answers visible.
-              </span>
-              <span class="copy-mobile">Check and correct every response.</span>
-            </p>
-          </article>
-          <article class="feature-card">
-            <span class="feature-icon icon-report"></span>
-            <h3>Export reports</h3>
-            <p>
-              <span class="copy-desktop">
-                Create Excel and Word reports with tallies, graphs, means, standard
-                deviation, categories, and interpretation.
-              </span>
-              <span class="copy-mobile">Export Word and Excel reports.</span>
-            </p>
-          </article>
-        </div>
-      </section>
-
-      <section id="customize" class="customize-section">
-        <div class="customize-heading">
-          <p class="eyebrow">Custom paper setup</p>
-          <h2>
-            <span class="copy-desktop">Users can customize the questionnaire before printing.</span>
-            <span class="copy-mobile">Customize before printing.</span>
-          </h2>
-          <p>
-            <span class="copy-desktop">
-              SnapStat lets users prepare the title, response scale, and information/instruction
-              box, then previews the exact paper form before it is downloaded.
-            </span>
-            <span class="copy-mobile">Set the title, scale, and instructions.</span>
-          </p>
-        </div>
-
-        <div class="customize-board">
+        <figure class="hero-device tilt-card reveal">
+          <div class="device-halo" aria-hidden="true"></div>
           <img
-            class="custom-collage"
-            src="assets/branding/custom-paper-collage.png"
-            alt="Research title, response scale, and instruction box customization connected to the survey form preview"
+            src="assets/branding/capture.jpg"
+            alt="SnapStat home screen showing Capture Survey, History, and Download Survey"
+            fetchpriority="high"
+            decoding="async"
           >
+          <figcaption>
+            <span>Ready to scan</span>
+            <span>30 questions · 5-point scale</span>
+          </figcaption>
+        </figure>
+
+        <div class="hero-side-note reveal">
+          <span>Local processing</span>
+          <span>Reviewable answers</span>
+          <span>Word + Excel exports</span>
+        </div>
+
+        <div class="scroll-cue" aria-hidden="true">
+          <span>Scroll to discover</span>
+          <i></i>
         </div>
       </section>
 
-      <section id="how-it-works" class="workflow-section">
-        <div class="workflow-copy">
-          <p class="eyebrow">Workflow</p>
-          <h2>From paper to report</h2>
-          <p>
-            <span class="copy-desktop">
-              SnapStat keeps the survey process simple: prepare the form, collect
-              answers, scan the sheet, confirm the results, then export.
-            </span>
-            <span class="copy-mobile">Print, scan, review, and export.</span>
-          </p>
-        </div>
-        <div class="workflow-list">
-          <div class="workflow-item">
-            <span>1</span>
-            <p>
-              <span class="copy-desktop">Download and print the SnapStat survey form.</span>
-              <span class="copy-mobile">Print the SnapStat form.</span>
-            </p>
-          </div>
-          <div class="workflow-item">
-            <span>2</span>
-            <p>
-              <span class="copy-desktop">Respondents shade one answer per question using ballpen or marker.</span>
-              <span class="copy-mobile">Shade one answer per question.</span>
-            </p>
-          </div>
-          <div class="workflow-item">
-            <span>3</span>
-            <p>
-              <span class="copy-desktop">Capture the form with all four corner squares visible.</span>
-              <span class="copy-mobile">Keep all four corners visible.</span>
-            </p>
-          </div>
-          <div class="workflow-item">
-            <span>4</span>
-            <p>
-              <span class="copy-desktop">Review the tally, individual responses, and export the report.</span>
-              <span class="copy-mobile">Review and export results.</span>
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section class="form-section">
-        <div class="form-copy">
-          <p class="eyebrow">Printable form</p>
-          <h2>
-            <span class="copy-desktop">Designed for computer vision</span>
-            <span class="copy-mobile">Built for accurate scanning.</span>
+      <section class="manifesto section-light" id="about">
+        <div class="section-shell">
+          <p class="section-index reveal">About the system</p>
+          <h2 class="statement split-text">
+            SnapStat makes paper data feel immediate, reviewable, and useful.
           </h2>
-          <p>
-            <span class="copy-desktop">
-              The downloaded form uses corner squares, row markers, column markers,
-              and a calibration mark so the scanner can align the paper and read the
-              shaded bubbles more consistently and accurately.
-            </span>
-            <span class="copy-mobile">Markers help SnapStat align and read each answer.</span>
+          <div class="manifesto-grid">
+            <p class="large-copy reveal">
+              Built for real survey work—from preparing the questionnaire to
+              checking individual answers and producing a report.
+            </p>
+            <div class="manifesto-detail reveal">
+              <p>
+                The scanner uses the printed form’s corner blocks, row markers,
+                column markers, and calibration point to align the page and
+                interpret shaded responses.
+              </p>
+              <a class="text-link magnetic" href="#customize">See the paper system <span>↗</span></a>
+            </div>
+          </div>
+        </div>
+
+        <div class="marquee" aria-hidden="true">
+          <div class="marquee-track">
+            <div class="marquee-group">
+              <span>CAPTURE</span><i>✦</i><span>REVIEW</span><i>✦</i><span>TALLY</span><i>✦</i><span>EXPORT</span><i>✦</i>
+            </div>
+            <div class="marquee-group">
+              <span>CAPTURE</span><i>✦</i><span>REVIEW</span><i>✦</i><span>TALLY</span><i>✦</i><span>EXPORT</span><i>✦</i>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="horizontal-story section-dark" id="workflow">
+        <div class="story-sticky">
+          <div class="story-heading">
+            <p class="section-index">The workflow</p>
+            <h2>One focused path from form to findings.</h2>
+          </div>
+
+          <div class="story-track">
+            <article class="story-card story-card-intro">
+              <div class="story-number" aria-hidden="true">01</div>
+              <div>
+                <p class="card-kicker">Prepare</p>
+                <h3>Start with a scannable form.</h3>
+                <p class="story-description">
+                  Build the questionnaire with its title, response scale, and
+                  instructions already in place.
+                </p>
+              </div>
+              <img src="assets/survey_forms/30_question.webp" alt="SnapStat printable 30-question survey form" loading="lazy" decoding="async">
+            </article>
+
+            <article class="story-card">
+              <div class="story-number" aria-hidden="true">02</div>
+              <div>
+                <p class="card-kicker">Capture</p>
+                <h3>Frame the paper. Scan with confidence.</h3>
+                <p class="story-description">
+                  Frame the printed form and let SnapStat read every shaded
+                  response directly on the device.
+                </p>
+              </div>
+              <img src="assets/branding/scan.webp" alt="SnapStat actively scanning a completed paper survey" loading="lazy" decoding="async">
+            </article>
+
+            <article class="story-card">
+              <div class="story-number" aria-hidden="true">03</div>
+              <div>
+                <p class="card-kicker">Review</p>
+                <h3>Review every answer.</h3>
+                <p class="story-description">
+                  Check each recognized response before it becomes part of the
+                  final survey results.
+                </p>
+              </div>
+              <img src="assets/branding/history.jpg" alt="SnapStat history and response records" loading="lazy" decoding="async">
+            </article>
+
+            <article class="story-card">
+              <div class="story-number" aria-hidden="true">04</div>
+              <div>
+                <p class="card-kicker">Report</p>
+                <h3>Turn tallies into a report.</h3>
+                <p class="story-description">
+                  Export clear Word and Excel summaries with totals, charts,
+                  categories, and interpretation.
+                </p>
+              </div>
+              <div class="story-export-pair" aria-label="SnapStat report exports">
+                <figure class="story-export-shot">
+                  <img src="assets/branding/word.webp" alt="SnapStat survey report exported to Microsoft Word" loading="lazy" decoding="async">
+                  <figcaption>Word Report</figcaption>
+                </figure>
+                <figure class="story-export-shot">
+                  <img src="assets/branding/excel.webp" alt="SnapStat survey report exported to Microsoft Excel" loading="lazy" decoding="async">
+                  <figcaption>Excel Report</figcaption>
+                </figure>
+              </div>
+            </article>
+          </div>
+
+          <div class="story-progress" aria-hidden="true"><span></span></div>
+        </div>
+      </section>
+
+      <section class="customize section-accent" id="customize">
+        <div class="customize-copy">
+          <p class="section-index reveal">A form with context</p>
+          <h2 class="split-text">
+            Your title.<br>
+            Your scale.<br>
+            Your instructions.
+          </h2>
+          <p class="reveal">
+            Configure the questionnaire before printing, then preview the exact
+            paper respondents will receive.
           </p>
-          <ul class="check-list">
-            <li>
-              <span class="copy-desktop">30-question form support</span>
-              <span class="copy-mobile">30 questions</span>
-            </li>
-            <li>
-              <span class="copy-desktop">Custom title, instructions/information, and scale labels</span>
-              <span class="copy-mobile">Custom title and scale</span>
-            </li>
-            <li>
-              <span class="copy-desktop">Categories for grouped summary graphs</span>
-              <span class="copy-mobile">Summary graphs</span>
-            </li>
-            <li>
-              <span class="copy-desktop">Local storage for scans and reports</span>
-              <span class="copy-mobile">Local file storage</span>
-            </li>
+          <ul class="feature-list reveal">
+            <li><span>Research title</span><small>Make the form identifiable</small></li>
+            <li><span>Response scale</span><small>Set meaningful labels</small></li>
+            <li><span>Information box</span><small>Keep instructions visible</small></li>
           </ul>
         </div>
-        <div class="form-preview">
-          <img src="assets/survey_forms/30_question.png" alt="SnapStat 30-question survey form preview">
-        </div>
+
+        <figure class="customize-visual tilt-card reveal" data-zoomable data-mobile-lightbox>
+          <img
+            src="assets/branding/custom-paper-collage.webp"
+            alt="SnapStat custom paper configuration showing research title, response scale, instructions, and form preview"
+            loading="lazy"
+            decoding="async"
+          >
+          <div class="image-zoom-preview" aria-hidden="true"></div>
+        </figure>
       </section>
 
-      <section id="security" class="security-section">
-        <div class="security-copy">
-          <p class="eyebrow">Safety check</p>
-          <h2>
-            <span class="copy-desktop">VirusTotal Verified Before Every Release</span>
-            <span class="copy-mobile">VirusTotal checked.</span>
-          </h2>
-          <p>
-            <span class="copy-desktop">
-              The SnapStat APK has been scanned with VirusTotal before release.
-              The latest report shows 0 detections, indicating that no participating
-              security vendors flagged the file as malicious.
-            </span>
-            <span class="copy-mobile">Every APK is scanned before release.</span>
-          </p>
-          <div class="security-note">
-            <span class="copy-desktop">
-              <strong>Privacy first.</strong>
-              All survey scans, responses, and reports stay on your device by default.
-            </span>
-            <span class="copy-mobile"><strong>Private.</strong> Files stay on your phone.</span>
-          </div>
-        </div>
-        <div class="security-proof">
-          <img src="assets/branding/virustotal.png" alt="VirusTotal scan result proof for SnapStat APK">
-        </div>
-      </section>
-
-      <section id="instructions" class="section-block">
-        <div class="instruction-heading-row">
-          <div class="section-heading">
-            <p class="eyebrow">Scan instructions</p>
-            <h2>
-              <span class="copy-desktop">How to capture the right way</span>
-              <span class="copy-mobile">Swipe through scan tips</span>
-            </h2>
-          </div>
-        </div>
-        <div
-          class="instruction-carousel"
-          data-instruction-carousel
-          tabindex="0"
-          role="region"
-          aria-label="Scan instruction carousel. Swipe, scroll, or use the left and right arrow keys to browse."
-        >
-          <div class="instruction-viewport">
-            <div class="instruction-gallery">
-              <article data-instruction-card>
-                <img src="assets/instructions/STEP1.png" alt="Use the downloaded SnapStat form">
-                <h3>Use the downloaded form</h3>
-              </article>
-              <article data-instruction-card>
-                <img src="assets/instructions/STEP2.png" alt="Keep all corner squares visible">
-                <h3>Show all corners</h3>
-              </article>
-              <article data-instruction-card>
-                <img src="assets/instructions/STEP3.png" alt="Flatten the paper before scanning">
-                <h3>Flatten the paper</h3>
-              </article>
-              <article data-instruction-card>
-                <img src="assets/instructions/STEP4.png" alt="Use even lighting">
-                <h3>Use even lighting</h3>
-              </article>
-              <article data-instruction-card>
-                <img src="assets/instructions/STEP5.png" alt="Fill the screen with the form">
-                <h3>Fill the screen</h3>
-              </article>
-              <article data-instruction-card>
-                <img src="assets/instructions/STEP6.png" alt="Hold the phone steady">
-                <h3>Hold the phone steady</h3>
-              </article>
-              <article data-instruction-card>
-                <img src="assets/instructions/STEP7.png" alt="Shade only one answer per question">
-                <h3>One answer only</h3>
-              </article>
-              <article data-instruction-card>
-                <img src="assets/instructions/STEP8.png" alt="Keep marks away from alignment markers">
-                <h3>Keep markers clean</h3>
-              </article>
-              <article data-instruction-card>
-                <img src="assets/instructions/STEP9.png" alt="Use ballpen or marker when shading answers">
-                <h3>Use ballpen or marker</h3>
-              </article>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="updates" class="updates-section">
-        <div class="updates-heading">
-          <p class="eyebrow">Update logs</p>
-          <h2>
-            <span class="copy-desktop">SnapStat version history</span>
-            <span class="copy-mobile">Version history</span>
-          </h2>
-          <p>
-            <span class="copy-desktop">
-              Every release improves the survey workflow, from form generation to scanning,
-              reviewing, and exporting results.
-            </span>
-            <span class="copy-mobile">What changed in each release.</span>
-          </p>
-        </div>
-
-        <div class="updates-carousel" aria-label="SnapStat update log carousel">
-          <div class="updates-viewport">
-            <div class="updates-track">
-              <article class="update-card">
-                <div class="update-version">
-                  <strong>0.1.0</strong>
-                  <span>FIRST RELEASE</span>
-                </div>
-                <div>
-                  <h3>Snapstat</h3>
-                  <p>
-                    <span class="copy-desktop">
-                      Introduced the printable survey form, survey capture, automatic tallying,
-                      session history, individual response review, and report export via Word or Excel.
-                    </span>
-                    <span class="copy-mobile">Forms, scanning, review, and exports.</span>
-                  </p>
-                </div>
-              </article>
-
-              <article class="update-card">
-                <div class="update-version">
-                  <strong>0.1.1</strong>
-                  <span>FIXING BUGS</span>
-                </div>
-                <div>
-                  <h3>Scanning Improvements</h3>
-                  <p>
-                    <span class="copy-desktop">
-                      Improved row and column marker alignment, added calibration support,
-                      added auto-crop for better accuracy, added scan instructions, adjusted
-                      answer validation, improved the information tab, made scan error messages
-                      clearer for users, and fixed bugs.
-                    </span>
-                    <span class="copy-mobile">Better alignment, cropping, guidance, and fixes.</span>
-                  </p>
-                </div>
-              </article>
-
-              <article class="update-card is-current">
-                <div class="update-version">
-                  <strong>0.1.2</strong>
-                  <span>CURRENT RELEASE</span>
-                </div>
-                <div>
-                  <h3>New Features and Improvements</h3>
-                  <p>
-                    <span class="copy-desktop">
-                      Added device requirements, added terms and conditions, added search and edit
-                      features in individual responses, improved the scanning animation, slightly
-                      reduced scanning time, adjusted the information/instruction box, locked the
-                      “ballpen or marker only” instruction from being changed, and fixed bugs.
-                    </span>
-                    <span class="copy-mobile">Faster scans, response editing, guidance, and fixes.</span>
-                  </p>
-                </div>
-              </article>
-
-              <article class="update-card is-upcoming">
-                <div class="update-version">
-                  <strong>0.1.3</strong>
-                  <span>UPCOMING UPDATE</span>
-                </div>
-                <div>
-                  <h3>Upcoming Features</h3>
-                  <p>
-                    <span class="copy-desktop">
-                      Added coach marks to guide new users and improved response scale configuration.
-                    </span>
-                    <span class="copy-mobile">Coach marks and better scale setup.</span>
-                  </p>
-                </div>
-              </article>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="download" class="download-section">
-        <div class="download-panel">
-          <div>
-            <p class="eyebrow">Install SnapStat</p>
-            <h2>Download the APK</h2>
-            <p>
-              <span class="copy-desktop">
-                Install the current app version on an Android device. Keep the app
-                local to your phone, then export files only when you choose to share them.
-              </span>
-              <span class="copy-mobile">Install locally on Android 10+.</span>
+      <section class="precision section-light">
+        <div class="section-shell precision-grid">
+          <div class="precision-copy">
+            <p class="section-index reveal">Computer-vision ready</p>
+            <h2 class="split-text">Designed around the paper—not around guesswork.</h2>
+            <p class="reveal">
+              Corner squares establish the page boundary. Row and column markers
+              align the response grid. A calibration point helps SnapStat read
+              shaded bubbles consistently.
             </p>
           </div>
-          <div class="download-card">
-            <!-- <span class="release-badge">NEW RELEASED</span> -->
-            <span class="release-badge">NEW FEATURES ADDED</span>
-            <img src="assets/branding/snapstat1_logo.png" alt="">
-            <h3>SNAPSTAT</h3>
-            <p>Android 10 or newer</p>
-            <a class="button button-primary" href="/download">
-              DOWNLOAD NOW
-            </a>
-            <small>Version 0.1.2</small>
+          <figure class="paper-stage reveal">
+            <div class="paper-orbit" aria-hidden="true"></div>
+            <img src="assets/survey_forms/30_question.webp" alt="SnapStat survey form with alignment markers" loading="lazy" decoding="async">
+            <figcaption>
+              <span>30 questions</span>
+              <span>5 response columns</span>
+              <span>Local scan</span>
+            </figcaption>
+          </figure>
+        </div>
+      </section>
+
+      <section class="instructions section-dark" id="instructions">
+        <div class="instructions-sticky">
+          <div class="instructions-copy">
+            <p class="section-index">Capture guidance</p>
+            <h2>Good input creates reliable output.</h2>
+            <p>
+              Keep scrolling. Each scene shows one condition that helps the
+              scanner read the form accurately.
+            </p>
+          </div>
+
+          <div class="instruction-stage">
+            <figure class="instruction-card is-active" data-mobile-lightbox>
+              <img src="assets/instructions/STEP1.webp" alt="Use the downloaded SnapStat survey form" loading="lazy" decoding="async">
+              <figcaption>Use the SnapStat form</figcaption>
+            </figure>
+            <figure class="instruction-card" data-mobile-lightbox>
+              <img src="assets/instructions/STEP2.webp" alt="Keep all four corner squares visible" loading="lazy" decoding="async">
+              <figcaption>Show all four corners</figcaption>
+            </figure>
+            <figure class="instruction-card" data-mobile-lightbox>
+              <img src="assets/instructions/STEP3.webp" alt="Flatten the paper before scanning" loading="lazy" decoding="async">
+              <figcaption>Keep the paper flat</figcaption>
+            </figure>
+            <figure class="instruction-card" data-mobile-lightbox>
+              <img src="assets/instructions/STEP4.webp" alt="Use even lighting" loading="lazy" decoding="async">
+              <figcaption>Use even lighting</figcaption>
+            </figure>
+            <figure class="instruction-card" data-mobile-lightbox>
+              <img src="assets/instructions/STEP5.webp" alt="Fill the camera view with the survey form" loading="lazy" decoding="async">
+              <figcaption>Fill the frame</figcaption>
+            </figure>
+            <figure class="instruction-card" data-mobile-lightbox>
+              <img src="assets/instructions/STEP6.webp" alt="Hold the phone steady" loading="lazy" decoding="async">
+              <figcaption>Hold steady</figcaption>
+            </figure>
+            <figure class="instruction-card" data-mobile-lightbox>
+              <img src="assets/instructions/STEP7.webp" alt="Shade only one answer per question" loading="lazy" decoding="async">
+              <figcaption>One answer per row</figcaption>
+            </figure>
+            <figure class="instruction-card" data-mobile-lightbox>
+              <img src="assets/instructions/STEP8.webp" alt="Keep marks away from alignment markers" loading="lazy" decoding="async">
+              <figcaption>Protect the markers</figcaption>
+            </figure>
+            <figure class="instruction-card" data-mobile-lightbox>
+              <img src="assets/instructions/STEP9.webp" alt="Use ballpen or marker for answers" loading="lazy" decoding="async">
+              <figcaption>Use ballpen or marker</figcaption>
+            </figure>
+          </div>
+
+          <div class="instruction-progress" aria-hidden="true">
+            <span></span>
           </div>
         </div>
+      </section>
+
+      <section class="trust section-light">
+        <div class="section-shell trust-grid">
+          <div>
+            <p class="section-index reveal">Private by default</p>
+            <h2 class="split-text">Your survey work stays on your device.</h2>
+          </div>
+          <div class="trust-copy reveal">
+            <p>
+              Scans, responses, and generated reports remain local until you
+              intentionally export or share them.
+            </p>
+            <div class="trust-pill">
+              <span>VirusTotal checked</span>
+              <strong>0 detections</strong>
+            </div>
+            <figure class="virustotal-proof-wrap" data-mobile-lightbox>
+              <img
+                class="virustotal-proof"
+                src="assets/branding/virustotal.webp"
+                alt="VirusTotal result showing no detections for the SnapStat APK"
+                loading="lazy"
+                decoding="async"
+              >
+            </figure>
+          </div>
+        </div>
+      </section>
+
+      <section class="download section-accent" id="download">
+        <div class="download-orbit" aria-hidden="true"></div>
+        <p class="section-index reveal">Android application</p>
+        <h2 class="download-title split-text">Ready to make paper faster?</h2>
+        <p class="download-copy reveal">
+          Install SnapStat on Android 10 or newer and keep your survey workflow
+          close, reviewable, and under your control.
+        </p>
+        <a class="download-button reveal" href="/download">
+          <img src="assets/branding/snapstat1_logo.png" alt="">
+          <span>
+            <small>Android 10+ · Version 0.1.2</small>
+            Download SnapStat
+          </span>
+        </a>
       </section>
     </main>
 
-    <script src="script.js"></script>
+    <div class="mobile-image-viewer" role="dialog" aria-modal="true" aria-label="Image preview" hidden>
+      <button class="mobile-image-viewer-close" type="button" aria-label="Close image preview">×</button>
+      <img src="" alt="">
+    </div>
+
+    <noscript>
+      <p class="noscript-message">
+        JavaScript is disabled. All content remains available, but the scroll
+        animations and menu require JavaScript.
+      </p>
+    </noscript>
   </body>
 </html>

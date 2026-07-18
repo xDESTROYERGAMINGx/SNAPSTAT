@@ -1,1146 +1,919 @@
+document.documentElement.classList.add('js');
+
 const reducedMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+const finePointerQuery = window.matchMedia('(hover: hover) and (pointer: fine)');
 const cleanupCallbacks = [];
-const SECTION_SELECTOR =
-  '.hero-section, .section-block, .customize-section, .workflow-section, ' +
-  '.form-section, .security-section, .updates-section, .download-section';
+let activeLenis = null;
+let completeActiveThemeTransition = null;
 
 function registerCleanup(callback) {
   if (typeof callback === 'function') cleanupCallbacks.push(callback);
 }
 
-function headerOffset() {
-  return document.querySelector('.site-header')?.offsetHeight ?? 0;
+function clamp(value, minimum = 0, maximum = 1) {
+  return Math.max(minimum, Math.min(maximum, value));
 }
 
-function interactionBlocksPageNavigation() {
-  const activeElement = document.activeElement;
-  const isEditing =
-    activeElement instanceof HTMLElement &&
-    (activeElement.matches('input, textarea, select') ||
-      activeElement.isContentEditable);
-
-  if (isEditing) return true;
-
-  return Boolean(
-    document.querySelector(
-      'dialog[open], [role="dialog"][aria-modal="true"]:not([hidden]), ' +
-        '[aria-haspopup][aria-expanded="true"], [data-loop-pause="true"]'
-    )
-  );
+function listen(target, eventName, handler, options) {
+  target.addEventListener(eventName, handler, options);
+  return () => target.removeEventListener(eventName, handler, options);
 }
 
-function initializeDownloadFeedback() {
-  const buttons = Array.from(document.querySelectorAll('a[download]'));
-  const listeners = [];
+function initializeThemeToggle() {
+  const toggle = document.querySelector('.theme-toggle');
+  const themeMeta = document.querySelector('meta[name="theme-color"]');
+  const systemTheme = window.matchMedia('(prefers-color-scheme: dark)');
+  let transitionInProgress = false;
+  if (!toggle) return null;
 
-  buttons.forEach((button) => {
-    const onClick = () => {
-      button.classList.add('is-downloading');
-      window.setTimeout(() => button.classList.remove('is-downloading'), 1200);
-    };
-    button.addEventListener('click', onClick);
-    listeners.push(() => button.removeEventListener('click', onClick));
-  });
-
-  return () => listeners.forEach((removeListener) => removeListener());
-}
-
-function initializeInstructionHorizontalScroll() {
-  const carousel = document.querySelector('[data-instruction-carousel]');
-  const cards = Array.from(
-    carousel?.querySelectorAll('[data-instruction-card]') ?? []
-  );
-
-  if (!carousel || cards.length === 0) return null;
-
-  let activeIndex = 0;
-  let updateFrame = 0;
-  let dragFrame = 0;
-  let pendingDragLeft = null;
-  const centeredFocusQuery = window.matchMedia(
-    '(max-width: 820px), (pointer: coarse) and (max-width: 1100px)'
-  );
-
-  function maximumScrollLeft() {
-    return Math.max(0, carousel.scrollWidth - carousel.clientWidth);
+  function storedTheme() {
+    try {
+      return localStorage.getItem('snapstat-theme');
+    } catch {
+      return null;
+    }
   }
 
-  function clampScrollLeft(left) {
-    return Math.max(0, Math.min(maximumScrollLeft(), left));
-  }
-
-  function cardTargetLeft(index) {
-    const card = cards[index];
-    if (!card) return 0;
-    if (!centeredFocusQuery.matches) return clampScrollLeft(card.offsetLeft);
-
-    return clampScrollLeft(
-      card.offsetLeft + card.offsetWidth / 2 - carousel.clientWidth / 2
+  function applyTheme(theme, persist = false) {
+    const nextTheme = theme === 'dark' ? 'dark' : 'light';
+    document.documentElement.dataset.theme = nextTheme;
+    toggle.checked = nextTheme === 'dark';
+    toggle.setAttribute(
+      'aria-label',
+      `Switch to ${nextTheme === 'dark' ? 'light' : 'dark'} mode`
     );
-  }
-
-  function closestCardIndex(left = carousel.scrollLeft) {
-    const focusPoint = centeredFocusQuery.matches
-      ? left + carousel.clientWidth / 2
-      : left;
-    let closestIndex = 0;
-    let closestDistance = Number.POSITIVE_INFINITY;
-
-    cards.forEach((card, index) => {
-      const cardPoint = centeredFocusQuery.matches
-        ? card.offsetLeft + card.offsetWidth / 2
-        : card.offsetLeft;
-      const distance = Math.abs(cardPoint - focusPoint);
-      if (distance < closestDistance) {
-        closestDistance = distance;
-        closestIndex = index;
+    toggle.setAttribute(
+      'title',
+      `Switch to ${nextTheme === 'dark' ? 'light' : 'dark'} mode`
+    );
+    themeMeta?.setAttribute(
+      'content',
+      nextTheme === 'dark' ? '#111421' : '#e8eeff'
+    );
+    if (persist) {
+      try {
+        localStorage.setItem('snapstat-theme', nextTheme);
+      } catch {
+        // The visual toggle still works when storage is unavailable.
       }
-    });
-
-    return closestIndex;
+    }
   }
 
-  function renderState() {
-    const focusPoint = centeredFocusQuery.matches
-      ? carousel.scrollLeft + carousel.clientWidth / 2
-      : carousel.scrollLeft;
+  function transitionToTheme(theme) {
+    const nextTheme = theme === 'dark' ? 'dark' : 'light';
+    const currentTheme = document.documentElement.dataset.theme === 'dark'
+      ? 'dark'
+      : 'light';
 
-    cards.forEach((card, index) => {
-      const active = index === activeIndex;
-      const cardPoint = centeredFocusQuery.matches
-        ? card.offsetLeft + card.offsetWidth / 2
-        : card.offsetLeft;
-      const focus = Math.max(
-        0,
-        1 - Math.abs(cardPoint - focusPoint) / Math.max(1, card.offsetWidth)
+    if (transitionInProgress || nextTheme === currentTheme) {
+      toggle.checked = currentTheme === 'dark';
+      return;
+    }
+
+    if (reducedMotionQuery.matches) {
+      applyTheme(nextTheme, true);
+      return;
+    }
+
+    transitionInProgress = true;
+    toggle.checked = nextTheme === 'dark';
+    const directionClass = nextTheme === 'dark'
+      ? 'theme-to-dark'
+      : 'theme-to-light';
+    let finished = false;
+    let safetyTimer = 0;
+    let startTimer = 0;
+    let activeViewTransition = null;
+    let transitionLayer = null;
+    let fallbackWipe = null;
+
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      window.clearTimeout(safetyTimer);
+      window.clearTimeout(startTimer);
+      document.documentElement.classList.remove(directionClass);
+      transitionInProgress = false;
+      completeActiveThemeTransition = null;
+    };
+
+    const completeForInteraction = () => {
+      if (finished) return;
+      window.clearTimeout(startTimer);
+      activeViewTransition?.skipTransition?.();
+      fallbackWipe?.cancel();
+      applyTheme(nextTheme, true);
+      transitionLayer?.remove();
+      finish();
+    };
+
+    completeActiveThemeTransition = completeForInteraction;
+
+    const beginWipe = () => {
+      startTimer = 0;
+      document.documentElement.classList.add(directionClass);
+
+      if (typeof document.startViewTransition === 'function') {
+        activeViewTransition = document.startViewTransition(() => {
+          applyTheme(nextTheme, true);
+        });
+        safetyTimer = window.setTimeout(() => {
+          completeForInteraction();
+        }, 1400);
+        activeViewTransition.finished.then(finish, () => {
+          applyTheme(nextTheme, true);
+          finish();
+        });
+        return;
+      }
+
+      transitionLayer = document.createElement('div');
+      transitionLayer.className = `theme-transition-layer is-${nextTheme}`;
+      transitionLayer.setAttribute('aria-hidden', 'true');
+      document.body.append(transitionLayer);
+      const darkKeyframes = [
+        { clipPath: 'polygon(0 0, 0 0, 0 0, 0 0)', offset: 0 },
+        { clipPath: 'polygon(0 0, 100% 0, 0 100%, 0 100%)', offset: 0.5 },
+        { clipPath: 'polygon(0 0, 100% 0, 100% 100%, 0 100%)', offset: 1 },
+      ];
+      const lightKeyframes = [
+        { clipPath: 'polygon(100% 100%, 100% 100%, 100% 100%, 100% 100%)', offset: 0 },
+        { clipPath: 'polygon(100% 100%, 0 100%, 100% 0, 100% 0)', offset: 0.5 },
+        { clipPath: 'polygon(0 0, 0 100%, 100% 100%, 100% 0)', offset: 1 },
+      ];
+      fallbackWipe = transitionLayer.animate(
+        nextTheme === 'dark' ? darkKeyframes : lightKeyframes,
+        { duration: 760, easing: 'cubic-bezier(0.65, 0, 0.35, 1)', fill: 'forwards' }
       );
-      card.classList.toggle('is-active', active);
-      card.setAttribute('aria-current', active ? 'step' : 'false');
-      card.style.setProperty('--instruction-focus', focus.toFixed(3));
-    });
-  }
 
-  function updateState() {
-    updateFrame = 0;
-    activeIndex = closestCardIndex();
-    renderState();
-  }
-
-  function scheduleStateUpdate() {
-    if (updateFrame) return;
-    updateFrame = window.requestAnimationFrame(updateState);
-  }
-
-  function flushDragPosition() {
-    if (pendingDragLeft === null) return;
-    carousel.scrollLeft = pendingDragLeft;
-    pendingDragLeft = null;
-  }
-
-  function scheduleDragPosition(left) {
-    pendingDragLeft = clampScrollLeft(left);
-    if (dragFrame) return;
-    dragFrame = window.requestAnimationFrame(() => {
-      dragFrame = 0;
-      flushDragPosition();
-      updateState();
-    });
-  }
-
-  function goTo(index, smooth = true) {
-    const nextIndex = Math.max(0, Math.min(cards.length - 1, index));
-    if (dragFrame) {
-      window.cancelAnimationFrame(dragFrame);
-      dragFrame = 0;
-    }
-    flushDragPosition();
-    carousel.classList.remove('is-touch-scrubbing');
-    activeIndex = nextIndex;
-    carousel.scrollTo({
-      left: cardTargetLeft(nextIndex),
-      top: 0,
-      behavior:
-        smooth && !reducedMotionQuery.matches ? 'smooth' : 'auto',
-    });
-    renderState();
-  }
-
-  function step(direction) {
-    if (direction > 0 && activeIndex < cards.length - 1) {
-      goTo(activeIndex + 1);
-      return true;
-    }
-    if (direction < 0 && activeIndex > 0) {
-      goTo(activeIndex - 1);
-      return true;
-    }
-    return false;
-  }
-
-  function beginTouchScrub() {
-    if (dragFrame) {
-      window.cancelAnimationFrame(dragFrame);
-      dragFrame = 0;
-    }
-    flushDragPosition();
-    activeIndex = closestCardIndex();
-    carousel.classList.add('is-touch-scrubbing');
-    return {
-      index: activeIndex,
-      left: carousel.scrollLeft,
+      fallbackWipe.finished.then(() => {
+        applyTheme(nextTheme, true);
+        return transitionLayer.animate(
+          [{ opacity: 1 }, { opacity: 0 }],
+          { duration: 140, easing: 'ease-out', fill: 'forwards' }
+        ).finished;
+      }).then(() => {
+        transitionLayer.remove();
+        finish();
+      }, () => {
+        applyTheme(nextTheme, true);
+        transitionLayer?.remove();
+        finish();
+      });
     };
+
+    startTimer = window.setTimeout(beginWipe, 330);
   }
 
-  function scrubTo(left) {
-    const maximum = maximumScrollLeft();
-    const clampedLeft = Math.max(0, Math.min(maximum, left));
-    scheduleDragPosition(clampedLeft);
-    return {
-      beforeStart: Math.max(0, -left),
-      afterEnd: Math.max(0, left - maximum),
-    };
+  function onToggle() {
+    transitionToTheme(toggle.checked ? 'dark' : 'light');
   }
 
-  function finishTouchScrub(direction, startIndex, distance) {
-    if (dragFrame) {
-      window.cancelAnimationFrame(dragFrame);
-      dragFrame = 0;
-    }
-    flushDragPosition();
-    carousel.classList.remove('is-touch-scrubbing');
-
-    let targetIndex = closestCardIndex();
-    if (distance >= 42) {
-      targetIndex =
-        direction > 0
-          ? Math.max(targetIndex, Math.min(cards.length - 1, startIndex + 1))
-          : Math.min(targetIndex, Math.max(0, startIndex - 1));
-    }
-    goTo(targetIndex);
-    return targetIndex;
+  function onSystemThemeChange(event) {
+    if (storedTheme()) return;
+    applyTheme(event.matches ? 'dark' : 'light');
   }
 
-  function onKeyDown(event) {
-    if (event.key === 'ArrowLeft') {
-      event.preventDefault();
-      goTo(activeIndex - 1);
-    } else if (event.key === 'ArrowRight') {
-      event.preventDefault();
-      goTo(activeIndex + 1);
-    }
-  }
+  applyTheme(
+    document.documentElement.dataset.theme ||
+      (systemTheme.matches ? 'dark' : 'light')
+  );
+  toggle.addEventListener('change', onToggle);
+  systemTheme.addEventListener?.('change', onSystemThemeChange);
 
-  carousel.addEventListener('scroll', scheduleStateUpdate, { passive: true });
-  carousel.addEventListener('keydown', onKeyDown);
-  window.addEventListener('resize', scheduleStateUpdate, { passive: true });
-  renderState();
-
-  return {
-    element: carousel,
-    section: carousel.closest('#instructions'),
-    step,
-    goTo,
-    beginTouchScrub,
-    scrubTo,
-    finishTouchScrub,
-    lastIndex: cards.length - 1,
-    first: () => goTo(0, false),
-    last: () => goTo(cards.length - 1, false),
-    cleanup() {
-      carousel.removeEventListener('scroll', scheduleStateUpdate);
-      carousel.removeEventListener('keydown', onKeyDown);
-      window.removeEventListener('resize', scheduleStateUpdate);
-      if (updateFrame) window.cancelAnimationFrame(updateFrame);
-      if (dragFrame) window.cancelAnimationFrame(dragFrame);
-      cards.forEach((card) => card.style.removeProperty('--instruction-focus'));
-    },
+  return () => {
+    toggle.removeEventListener('change', onToggle);
+    systemTheme.removeEventListener?.('change', onSystemThemeChange);
   };
 }
 
-/**
- * Creates a three-cycle scroll track: previous copy, interactive original,
- * next copy. The viewport starts in the middle cycle. Crossing either cycle
- * boundary moves scrollTop by exactly one cycle height inside the same frame,
- * so every visible pixel remains identical while the scroll position wraps.
- *
- * This mirrors the full-track infinite approach used by Lenis' `infinite`
- * mode, but stays dependency-free and keeps only the middle copy interactive.
- */
-function initializeCircularVerticalScroll() {
-  const main = document.querySelector('main');
-  const supportsRequiredFeatures =
-    main &&
-    typeof window.requestAnimationFrame === 'function' &&
-    typeof window.scrollTo === 'function' &&
-    typeof Element.prototype.cloneNode === 'function';
+function initializePreloader() {
+  let loaded = false;
+  let revealTimer = 0;
 
-  if (!supportsRequiredFeatures || reducedMotionQuery.matches) return null;
+  function revealSite() {
+    if (loaded) return;
+    loaded = true;
+    window.clearTimeout(revealTimer);
+    document.body.classList.add('is-loaded');
+    document.body.classList.remove('is-loading');
 
-  const initialDocumentTop = window.scrollY;
-  const originalParent = main.parentNode;
-  const originalNextSibling = main.nextSibling;
-  const viewport = document.createElement('div');
-  const track = document.createElement('div');
-  viewport.className = 'infinite-scroll-viewport';
-  viewport.setAttribute('data-infinite-scroll-viewport', '');
-  track.className = 'infinite-scroll-track';
-
-  function createInertCopy(position) {
-    const copy = document.createElement('div');
-    copy.className = `infinite-scroll-copy infinite-scroll-copy-${position}`;
-    copy.setAttribute('aria-hidden', 'true');
-    copy.setAttribute('inert', '');
-    Array.from(main.children).forEach((section) => {
-      const sectionCopy = section.cloneNode(true);
-      sectionCopy.removeAttribute('id');
-      sectionCopy.querySelectorAll('[id]').forEach((element) => {
-        element.removeAttribute('id');
-      });
-      sectionCopy
-        .querySelectorAll('a, button, input, textarea, select, [tabindex]')
-        .forEach((element) => {
-          element.setAttribute('tabindex', '-1');
-          if (element.matches('a[href]')) element.removeAttribute('href');
-        });
-      copy.appendChild(sectionCopy);
-    });
-    return copy;
-  }
-
-  const previousCopy = createInertCopy('previous');
-  const nextCopy = createInertCopy('next');
-  originalParent.insertBefore(viewport, main);
-  viewport.appendChild(track);
-  track.append(previousCopy, main, nextCopy);
-
-  let cycleHeight = 0;
-  let middleStart = 0;
-  let scrollFrame = 0;
-  let resizeFrame = 0;
-  let motionFrame = 0;
-  let repositioning = false;
-  let motionScrolling = false;
-
-  function measure() {
-    const oldCycleHeight = cycleHeight;
-    const oldMiddleStart = middleStart;
-    const logicalProgress =
-      oldCycleHeight > 0
-        ? Math.max(
-            0,
-            Math.min(
-              1,
-              (viewport.scrollTop - oldMiddleStart) / oldCycleHeight
-            )
-          )
-        : 0;
-
-    cycleHeight = Math.max(1, main.getBoundingClientRect().height);
-    middleStart = main.offsetTop;
-    document.body.style.setProperty(
-      '--vertical-loop-cycle-height',
-      `${cycleHeight}px`
-    );
-
-    if (oldCycleHeight > 0 && !repositioning && !motionScrolling) {
-      performInvisibleRebase(
-        middleStart + logicalProgress * cycleHeight
-      );
-    }
-  }
-
-  function performInvisibleRebase(targetTop) {
-    if (repositioning) return;
-    repositioning = true;
-    document.documentElement.classList.add('is-loop-repositioning');
-    viewport.scrollTop = Math.max(0, targetTop);
-    viewport.dispatchEvent(new Event('snapstat:loop-rebase'));
     window.requestAnimationFrame(() => {
-      document.documentElement.classList.remove('is-loop-repositioning');
-      repositioning = false;
+      document
+        .querySelectorAll('.hero .reveal, .hero .split-text')
+        .forEach((element) => element.classList.add('is-visible'));
     });
   }
 
-  function checkPosition() {
-    scrollFrame = 0;
-    if (
-      repositioning ||
-      motionScrolling ||
-      reducedMotionQuery.matches ||
-      interactionBlocksPageNavigation()
-    ) {
-      return;
-    }
+  const onLoad = () => {
+    revealTimer = window.setTimeout(revealSite, reducedMotionQuery.matches ? 0 : 2200);
+  };
 
-    const currentTop = viewport.scrollTop;
-    if (currentTop >= middleStart + cycleHeight) {
-      performInvisibleRebase(currentTop - cycleHeight);
-    } else if (currentTop < middleStart) {
-      performInvisibleRebase(currentTop + cycleHeight);
-    }
+  if (document.readyState === 'complete') {
+    onLoad();
+  } else {
+    window.addEventListener('load', onLoad, { once: true });
   }
 
-  function cancelScrollMotion() {
-    if (motionFrame) window.cancelAnimationFrame(motionFrame);
-    motionFrame = 0;
-    motionScrolling = false;
-    document.documentElement.classList.remove('is-motion-scrolling');
-  }
+  const fallbackTimer = window.setTimeout(revealSite, 4600);
 
-  function settleLoopBoundary(targetTop) {
-    const nextBoundary = middleStart + cycleHeight;
-    if (targetTop >= nextBoundary) {
-      performInvisibleRebase(targetTop - cycleHeight);
-    } else if (targetTop < middleStart) {
-      performInvisibleRebase(targetTop + cycleHeight);
-    }
-  }
+  return () => {
+    window.removeEventListener('load', onLoad);
+    window.clearTimeout(revealTimer);
+    window.clearTimeout(fallbackTimer);
+  };
+}
 
-  function animateScrollTo(targetTop) {
-    cancelScrollMotion();
-    const startTop = viewport.scrollTop;
-    const safeTarget = Math.max(0, targetTop);
-    const distance = safeTarget - startTop;
+function initializeSplitText() {
+  const targets = Array.from(document.querySelectorAll('.split-text'));
 
-    if (Math.abs(distance) < 1) {
-      viewport.scrollTop = safeTarget;
-      settleLoopBoundary(safeTarget);
-      return;
-    }
-
-    const screenDistance =
-      Math.abs(distance) / Math.max(1, viewport.clientHeight);
-    const duration = Math.max(
-      720,
-      Math.min(1050, 620 + screenDistance * 240)
+  targets.forEach((target) => {
+    if (target.dataset.splitReady === 'true') return;
+    const walker = document.createTreeWalker(
+      target,
+      NodeFilter.SHOW_TEXT,
+      {
+        acceptNode(node) {
+          return node.textContent.trim()
+            ? NodeFilter.FILTER_ACCEPT
+            : NodeFilter.FILTER_REJECT;
+        },
+      }
     );
-    const startTime = performance.now();
-    motionScrolling = true;
-    document.documentElement.classList.add('is-motion-scrolling');
+    const textNodes = [];
+    while (walker.nextNode()) textNodes.push(walker.currentNode);
 
-    function tick(now) {
-      const elapsed = Math.min(1, (now - startTime) / duration);
-      const eased = 1 - Math.pow(1 - elapsed, 3);
-      viewport.scrollTop = startTop + distance * eased;
-
-      if (elapsed < 1) {
-        motionFrame = window.requestAnimationFrame(tick);
-        return;
-      }
-
-      motionFrame = 0;
-      viewport.scrollTop = safeTarget;
-      motionScrolling = false;
-      document.documentElement.classList.remove('is-motion-scrolling');
-      settleLoopBoundary(safeTarget);
-      schedulePositionCheck();
-    }
-
-    motionFrame = window.requestAnimationFrame(tick);
-  }
-
-  function schedulePositionCheck() {
-    if (scrollFrame) return;
-    scrollFrame = window.requestAnimationFrame(checkPosition);
-  }
-
-  function scheduleMeasure() {
-    if (resizeFrame) return;
-    resizeFrame = window.requestAnimationFrame(() => {
-      resizeFrame = 0;
-      measure();
-    });
-  }
-
-  const resizeObserver =
-    typeof ResizeObserver === 'function'
-      ? new ResizeObserver(scheduleMeasure)
-      : null;
-
-  document.documentElement.classList.add('has-infinite-scroll');
-  document.body.classList.add('has-infinite-scroll');
-  viewport.addEventListener('scroll', schedulePositionCheck, { passive: true });
-  window.addEventListener('resize', scheduleMeasure, { passive: true });
-  window.addEventListener('load', scheduleMeasure, { once: true });
-  resizeObserver?.observe(main);
-  resizeObserver?.observe(viewport);
-  measure();
-  performInvisibleRebase(middleStart + Math.max(0, initialDocumentTop));
-  window.scrollTo(0, 0);
-  viewport.classList.add('is-ready');
-
-  return {
-    surface: viewport,
-    scrollTop: () => viewport.scrollTop,
-    sectionTarget(section) {
-      return (
-        section.getBoundingClientRect().top -
-        viewport.getBoundingClientRect().top +
-        viewport.scrollTop
-      );
-    },
-    nextHeroTarget() {
-      const section = nextCopy.querySelector('.hero-section');
-      return section
-        ? section.getBoundingClientRect().top -
-            viewport.getBoundingClientRect().top +
-            viewport.scrollTop
-        : 0;
-    },
-    scrollTo(targetTop, behavior = 'smooth') {
-      if (behavior === 'auto' || reducedMotionQuery.matches) {
-        cancelScrollMotion();
-        const safeTarget = Math.max(0, targetTop);
-        viewport.scrollTop = safeTarget;
-        settleLoopBoundary(safeTarget);
-        return;
-      }
-      animateScrollTo(targetTop);
-    },
-    scrollBackwardTo(targetTop, behavior = 'smooth') {
-      cancelScrollMotion();
-      performInvisibleRebase(viewport.scrollTop + cycleHeight);
-      window.requestAnimationFrame(() => {
-        if (behavior === 'auto' || reducedMotionQuery.matches) {
-          viewport.scrollTop = Math.max(0, targetTop);
+    textNodes.forEach((textNode) => {
+      const fragment = document.createDocumentFragment();
+      textNode.textContent.split(/(\s+)/).forEach((part) => {
+        if (!part.trim()) {
+          fragment.appendChild(document.createTextNode(part));
           return;
         }
-        animateScrollTo(targetTop);
+
+        const word = document.createElement('span');
+        const inner = document.createElement('span');
+        word.className = 'word';
+        inner.textContent = part;
+        word.appendChild(inner);
+        fragment.appendChild(word);
       });
-    },
-    cleanup() {
-      const logicalTop = Math.max(0, viewport.scrollTop - middleStart);
-      viewport.removeEventListener('scroll', schedulePositionCheck);
-      window.removeEventListener('resize', scheduleMeasure);
-      window.removeEventListener('load', scheduleMeasure);
-      resizeObserver?.disconnect();
-      if (scrollFrame) window.cancelAnimationFrame(scrollFrame);
-      if (resizeFrame) window.cancelAnimationFrame(resizeFrame);
-      cancelScrollMotion();
-      originalParent.insertBefore(main, originalNextSibling);
-      viewport.remove();
-      document.documentElement.classList.remove('has-infinite-scroll');
-      document.body.classList.remove('has-infinite-scroll');
-      document.body.style.removeProperty('--vertical-loop-cycle-height');
-      document.documentElement.classList.remove('is-loop-repositioning');
-      document.documentElement.classList.remove('is-motion-scrolling');
-      window.scrollTo(0, logicalTop);
-    },
-  };
+      textNode.replaceWith(fragment);
+    });
+
+    target.dataset.splitReady = 'true';
+  });
 }
 
-function initializeSectionSnapping(instructions, circularLoop) {
-  const originalMain = document.querySelector('main#top');
-  const sections = Array.from(
-    originalMain?.querySelectorAll(SECTION_SELECTOR) ?? []
+function initializeRevealObserver() {
+  const targets = Array.from(
+    document.querySelectorAll('.reveal, .split-text:not(.display-title)')
   );
-  if (sections.length === 0) return null;
 
-  const scrollSurface = circularLoop?.surface ?? window;
-  const instructionIndex = sections.indexOf(instructions?.section);
-  let currentSectionIndex = 0;
-  let navigationLocked = false;
-  let unlockTimer = 0;
-  let touchStartX = 0;
-  let touchStartY = 0;
-  let touchDirection = 0;
-  let touchIsControlled = false;
-  let touchAxisLocked = '';
-  let touchDeltaY = 0;
-  let touchStartedInInstructions = false;
-  let instructionScrubStarted = false;
-  let instructionTouchStartLeft = 0;
-  let instructionTouchStartIndex = 0;
-  let instructionBoundaryOverflow = 0;
-
-  function currentScrollTop() {
-    return circularLoop
-      ? circularLoop.scrollTop()
-      : window.scrollY + headerOffset();
+  if (
+    reducedMotionQuery.matches ||
+    typeof IntersectionObserver !== 'function'
+  ) {
+    targets.forEach((target) => target.classList.add('is-visible'));
+    return null;
   }
 
-  function sectionTop(section) {
-    return circularLoop
-      ? circularLoop.sectionTarget(section)
-      : Math.max(0, section.offsetTop - headerOffset());
-  }
-
-  function nearestSectionIndex() {
-    const currentTop = currentScrollTop();
-    let nearest = 0;
-    let nearestDistance = Number.POSITIVE_INFINITY;
-
-    sections.forEach((section, index) => {
-      const distance = Math.abs(sectionTop(section) - currentTop);
-      if (distance < nearestDistance) {
-        nearest = index;
-        nearestDistance = distance;
-      }
-    });
-
-    return nearest;
-  }
-
-  function lockNavigation(duration = 920) {
-    navigationLocked = true;
-    window.clearTimeout(unlockTimer);
-    unlockTimer = window.setTimeout(() => {
-      navigationLocked = false;
-    }, duration);
-  }
-
-  function scrollToTarget(targetTop) {
-    if (circularLoop) {
-      circularLoop.scrollTo(
-        targetTop,
-        reducedMotionQuery.matches ? 'auto' : 'smooth'
-      );
-      return;
+  const observer = new IntersectionObserver(
+    (entries) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        entry.target.classList.add('is-visible');
+        observer.unobserve(entry.target);
+      });
+    },
+    {
+      threshold: 0.16,
+      rootMargin: '0px 0px -8% 0px',
     }
+  );
 
-    window.scrollTo({
-      top: targetTop,
-      left: 0,
-      behavior: reducedMotionQuery.matches ? 'auto' : 'smooth',
-    });
+  targets.forEach((target) => observer.observe(target));
+  return () => observer.disconnect();
+}
+
+function initializeMenu() {
+  const button = document.querySelector('.menu-toggle');
+  const overlay = document.querySelector('.menu-overlay');
+  const links = Array.from(overlay?.querySelectorAll('a') ?? []);
+  const header = document.querySelector('.site-header');
+  if (!button || !overlay) return null;
+  let focusTimer = 0;
+
+  function setOpen(open) {
+    window.clearTimeout(focusTimer);
+    focusTimer = 0;
+    button.setAttribute('aria-expanded', String(open));
+    button.setAttribute('aria-label', open ? 'Close site menu' : 'Open site menu');
+    overlay.classList.toggle('is-open', open);
+    overlay.setAttribute('aria-hidden', String(!open));
+    document.body.classList.toggle('menu-open', open);
+    window.dispatchEvent(
+      new CustomEvent('snapstat:menu-toggle', { detail: { open } })
+    );
+    if (open) {
+      header?.classList.remove('is-hidden');
+      focusTimer = window.setTimeout(() => {
+        links[0]?.focus();
+        focusTimer = 0;
+      }, 120);
+    }
   }
 
-  function moveToSection(index, direction) {
-    const nextIndex = Math.max(0, Math.min(sections.length - 1, index));
-    if (nextIndex === instructionIndex && nextIndex !== currentSectionIndex) {
-      if (direction > 0) instructions?.first();
-      if (direction < 0) instructions?.last();
-    }
-
-    currentSectionIndex = nextIndex;
-    lockNavigation();
-    scrollToTarget(sectionTop(sections[nextIndex]));
+  function onButtonClick() {
+    completeActiveThemeTransition?.();
+    setOpen(button.getAttribute('aria-expanded') !== 'true');
   }
 
-  function moveThroughLoop(direction) {
-    if (!circularLoop) return false;
-    lockNavigation(1050);
-    if (direction > 0) {
-      scrollToTarget(circularLoop.nextHeroTarget());
-    } else {
-      currentSectionIndex = sections.length - 1;
-      circularLoop.scrollBackwardTo(
-        sectionTop(sections[currentSectionIndex]),
-        reducedMotionQuery.matches ? 'auto' : 'smooth'
-      );
-    }
-    return true;
-  }
-
-  function stepPage(direction) {
-    if (navigationLocked || interactionBlocksPageNavigation()) return false;
-
-    currentSectionIndex = nearestSectionIndex();
-
-    if (
-      currentSectionIndex === instructionIndex &&
-      instructions?.step(direction)
-    ) {
-      lockNavigation(500);
-      return true;
-    }
-
-    if (direction > 0 && currentSectionIndex === sections.length - 1) {
-      return moveThroughLoop(1);
-    }
-
-    if (direction < 0 && currentSectionIndex === 0) {
-      return moveThroughLoop(-1);
-    }
-    moveToSection(currentSectionIndex + direction, direction);
-    return true;
-  }
-
-  function onWheel(event) {
-    if (
-      reducedMotionQuery.matches ||
-      event.ctrlKey ||
-      Math.abs(event.deltaY) < 18 ||
-      event.target.closest('.updates-carousel')
-    ) {
-      return;
-    }
-
-    event.preventDefault();
-    stepPage(event.deltaY > 0 ? 1 : -1);
+  function onButtonPointerDown() {
+    /* A full-page theme snapshot can visually cover live interface changes.
+       Finish it as soon as the user reaches for the menu control. */
+    completeActiveThemeTransition?.();
   }
 
   function onKeyDown(event) {
-    if (
-      reducedMotionQuery.matches ||
-      interactionBlocksPageNavigation()
-    ) {
-      return;
-    }
-
-    if (
-      event.code === 'Space' &&
-      event.target instanceof Element &&
-      event.target.closest('a, button, [role="button"]')
-    ) {
-      return;
-    }
-
-    const nextKeys = ['ArrowDown', 'PageDown', 'Space'];
-    const previousKeys = ['ArrowUp', 'PageUp'];
-    if (nextKeys.includes(event.code)) {
-      event.preventDefault();
-      stepPage(1);
-    } else if (previousKeys.includes(event.code)) {
-      event.preventDefault();
-      stepPage(-1);
+    if (event.key === 'Escape' && button.getAttribute('aria-expanded') === 'true') {
+      setOpen(false);
+      button.focus();
     }
   }
 
-  function onTouchStart(event) {
-    touchStartX = event.touches[0]?.clientX ?? 0;
-    touchStartY = event.touches[0]?.clientY ?? 0;
-    touchDirection = 0;
-    touchIsControlled = false;
-    touchAxisLocked = '';
-    touchDeltaY = 0;
-    instructionScrubStarted = false;
-    instructionBoundaryOverflow = 0;
-    touchStartedInInstructions =
-      instructionIndex >= 0 &&
-      nearestSectionIndex() === instructionIndex;
-  }
+  const removers = [
+    listen(button, 'pointerdown', onButtonPointerDown),
+    listen(button, 'click', onButtonClick),
+    listen(window, 'keydown', onKeyDown),
+    ...links.map((link) => listen(link, 'click', () => setOpen(false))),
+  ];
 
-  function onTouchMove(event) {
-    if (
-      reducedMotionQuery.matches ||
-      interactionBlocksPageNavigation() ||
-      event.target.closest('.updates-carousel')
-    ) {
-      return;
-    }
-
-    const currentX = event.touches[0]?.clientX ?? touchStartX;
-    const currentY = event.touches[0]?.clientY ?? touchStartY;
-    const deltaX = touchStartX - currentX;
-    const deltaY = touchStartY - currentY;
-    if (!touchAxisLocked && Math.max(Math.abs(deltaX), Math.abs(deltaY)) >= 10) {
-      touchAxisLocked =
-        Math.abs(deltaX) > Math.abs(deltaY) ? 'horizontal' : 'vertical';
-    }
-    if (touchAxisLocked !== 'vertical' || Math.abs(deltaY) < 12) return;
-
-    event.preventDefault();
-    touchDirection = deltaY > 0 ? 1 : -1;
-    touchDeltaY = deltaY;
-    touchIsControlled = true;
-
-    if (touchStartedInInstructions && instructions) {
-      if (!instructionScrubStarted) {
-        const startState = instructions.beginTouchScrub();
-        instructionTouchStartLeft = startState.left;
-        instructionTouchStartIndex = startState.index;
-        instructionScrubStarted = true;
-      }
-
-      const boundary = instructions.scrubTo(
-        instructionTouchStartLeft + deltaY * 1.08
-      );
-      instructionBoundaryOverflow =
-        touchDirection > 0 ? boundary.afterEnd : boundary.beforeStart;
-    }
-  }
-
-  function onTouchEnd() {
-    if (!touchIsControlled) {
-      touchStartedInInstructions = false;
-      instructionScrubStarted = false;
-      return;
-    }
-    const direction = touchDirection;
-    const distance = Math.abs(touchDeltaY);
-    const wasInstructionScrub =
-      touchStartedInInstructions && instructionScrubStarted && instructions;
-    const shouldLeaveInstructions =
-      wasInstructionScrub &&
-      distance >= 60 &&
-      instructionBoundaryOverflow >= 28 &&
-      ((direction > 0 &&
-        instructionTouchStartIndex === instructions.lastIndex) ||
-        (direction < 0 && instructionTouchStartIndex === 0));
-
-    touchIsControlled = false;
-    touchStartedInInstructions = false;
-    instructionScrubStarted = false;
-
-    if (wasInstructionScrub) {
-      instructions.finishTouchScrub(
-        direction,
-        instructionTouchStartIndex,
-        distance
-      );
-      if (navigationLocked) return;
-      if (shouldLeaveInstructions) {
-        stepPage(direction);
-      } else {
-        lockNavigation(420);
-      }
-      return;
-    }
-
-    if (navigationLocked) return;
-    stepPage(direction);
-  }
-
-  function onTouchCancel() {
-    if (instructionScrubStarted && instructions) {
-      instructions.finishTouchScrub(
-        touchDirection || 1,
-        instructionTouchStartIndex,
-        0
-      );
-    }
-    touchIsControlled = false;
-    touchStartedInInstructions = false;
-    instructionScrubStarted = false;
-  }
-
-  function onResize() {
-    currentSectionIndex = nearestSectionIndex();
-  }
-
-  scrollSurface.addEventListener('wheel', onWheel, { passive: false });
-  window.addEventListener('keydown', onKeyDown);
-  scrollSurface.addEventListener('touchstart', onTouchStart, { passive: true });
-  scrollSurface.addEventListener('touchmove', onTouchMove, { passive: false });
-  scrollSurface.addEventListener('touchend', onTouchEnd, { passive: true });
-  scrollSurface.addEventListener('touchcancel', onTouchCancel, { passive: true });
-  window.addEventListener('resize', onResize, { passive: true });
-
-  return {
-    stepPage,
-    cleanup() {
-      scrollSurface.removeEventListener('wheel', onWheel);
-      window.removeEventListener('keydown', onKeyDown);
-      scrollSurface.removeEventListener('touchstart', onTouchStart);
-      scrollSurface.removeEventListener('touchmove', onTouchMove);
-      scrollSurface.removeEventListener('touchend', onTouchEnd);
-      scrollSurface.removeEventListener('touchcancel', onTouchCancel);
-      window.removeEventListener('resize', onResize);
-      window.clearTimeout(unlockTimer);
-    },
+  return () => {
+    setOpen(false);
+    window.clearTimeout(focusTimer);
+    removers.forEach((remove) => remove());
   };
 }
 
-/**
- * Drives every section's reveal directly from its live scroll position.
- * This creates the pinned, scrubbed feeling of motion-led studio sites while
- * preserving the existing one-gesture section navigation and circular track.
- */
-function initializeSectionMotion(circularLoop) {
+function initializeAnimationBridge() {
+  const gsap = window.gsap;
+  const ScrollTrigger = window.ScrollTrigger;
+  const Lenis = window.Lenis;
+
   if (
     reducedMotionQuery.matches ||
-    typeof window.requestAnimationFrame !== 'function'
+    !gsap ||
+    !ScrollTrigger ||
+    !Lenis
   ) {
     return null;
   }
 
-  const scrollSurface = circularLoop?.surface ?? window;
-  const motionRoot =
-    circularLoop?.surface?.querySelector('.infinite-scroll-track') ?? document;
-  const sections = Array.from(motionRoot.querySelectorAll(SECTION_SELECTOR));
-  const originalMain = document.querySelector('main#top');
-  const originalSections = Array.from(
-    originalMain?.querySelectorAll(SECTION_SELECTOR) ?? []
+  gsap.registerPlugin(ScrollTrigger);
+  const touchDevice =
+    'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  const lenis = new Lenis({
+    autoRaf: false,
+    duration: 1.05,
+    easing: (value) => 1 - Math.pow(1 - value, 3),
+    lerp: 0.105,
+    smoothWheel: true,
+    syncTouch: false,
+    wheelMultiplier: touchDevice ? 0.6 : 0.85,
+    touchMultiplier: touchDevice ? 1.2 : 1.1,
+    anchors: false,
+    stopInertiaOnNavigate: true,
+    prevent: (node) =>
+      node instanceof Element &&
+      Boolean(node.closest('[data-lenis-prevent], .menu-overlay')),
+  });
+  activeLenis = lenis;
+
+  const updateScrollTrigger = () => {
+    ScrollTrigger.update();
+    window.dispatchEvent(new Event('snapstat:smooth-scroll'));
+  };
+  const tickerCallback = (time) => lenis.raf(time * 1000);
+  const onMenuToggle = (event) => {
+    if (event.detail?.open) lenis.stop();
+    else lenis.start();
+  };
+  const onReducedMotionChange = (event) => {
+    if (event.matches) lenis.stop();
+    else lenis.start();
+  };
+  const onLoad = () => ScrollTrigger.refresh();
+
+  lenis.on('scroll', updateScrollTrigger);
+  gsap.ticker.add(tickerCallback);
+  gsap.ticker.lagSmoothing(0);
+  window.addEventListener('snapstat:menu-toggle', onMenuToggle);
+  window.addEventListener('load', onLoad, { once: true });
+  reducedMotionQuery.addEventListener?.('change', onReducedMotionChange);
+
+  return () => {
+    window.removeEventListener('snapstat:menu-toggle', onMenuToggle);
+    window.removeEventListener('load', onLoad);
+    reducedMotionQuery.removeEventListener?.('change', onReducedMotionChange);
+    lenis.off?.('scroll', updateScrollTrigger);
+    gsap.ticker.remove(tickerCallback);
+    gsap.ticker.lagSmoothing(500, 33);
+    lenis.destroy();
+    if (activeLenis === lenis) activeLenis = null;
+  };
+}
+
+function initializeHeaderMotion() {
+  const header = document.querySelector('.site-header');
+  if (!header) return null;
+
+  let lastScroll = window.scrollY;
+  let scheduled = false;
+
+  function update() {
+    scheduled = false;
+    const currentScroll = window.scrollY;
+    if (document.body.classList.contains('is-navigating')) {
+      header.classList.remove('is-hidden');
+      lastScroll = currentScroll;
+      return;
+    }
+    const movingDown = currentScroll > lastScroll;
+    header.classList.toggle(
+      'is-hidden',
+      movingDown && currentScroll > window.innerHeight * 0.6
+    );
+    lastScroll = currentScroll;
+  }
+
+  function onScroll() {
+    if (scheduled) return;
+    scheduled = true;
+    window.requestAnimationFrame(update);
+  }
+
+  window.addEventListener('scroll', onScroll, { passive: true });
+  return () => window.removeEventListener('scroll', onScroll);
+}
+
+function initializeScrollScenes() {
+  const storySection = document.querySelector('.horizontal-story');
+  const storySticky = storySection?.querySelector('.story-sticky');
+  const storyTrack = storySection?.querySelector('.story-track');
+  const storyCards = Array.from(storyTrack?.querySelectorAll('.story-card') ?? []);
+  const storyProgress = storySection?.querySelector('.story-progress span');
+
+  const instructionSection = document.querySelector('.instructions');
+  const instructionCards = Array.from(
+    instructionSection?.querySelectorAll('.instruction-card') ?? []
   );
-  const navigationLinks = Array.from(
-    document.querySelectorAll('.nav-links a[href^="#"]')
+  const instructionProgress = instructionSection?.querySelector(
+    '.instruction-progress span'
   );
-  const visualItemSelector =
-    '.hero-visual, .feature-grid, .customize-board, .workflow-list, ' +
-    '.form-preview, .security-proof, .instruction-carousel, ' +
-    '.updates-carousel, .download-panel';
-  const textGroupSelector =
-    '.hero-copy, .section-heading, .customize-heading, .workflow-copy, ' +
-    '.form-copy, .security-copy, .updates-heading';
+  const heroDevice = document.querySelector('.hero-device');
+  const heroGrid = document.querySelector('.hero-grid');
+  const customizeVisual = document.querySelector('.customize-visual');
+  const paperImage = document.querySelector('.paper-stage > img');
 
-  if (sections.length === 0) return null;
+  let frame = 0;
 
-  const sectionGroups = [];
-  const sectionItems = sections.map((section) => {
-    section.classList.add('motion-section');
-    const groups = [];
-    const items = [];
+  function sectionProgress(section) {
+    if (!section) return 0;
+    const rect = section.getBoundingClientRect();
+    const travel = Math.max(1, section.offsetHeight - window.innerHeight);
+    return clamp(-rect.top / travel);
+  }
 
-    function addMotionItem(item) {
-      const index = items.length;
-      item.classList.add('motion-item');
-      item.classList.toggle(
-        'is-motion-visual',
-        item.matches(visualItemSelector)
-      );
-      item.dataset.motionOrder = String(index);
-      items.push(item);
+  function updateStory() {
+    if (!storySection || !storySticky || !storyTrack) return;
+    const progress = sectionProgress(storySection);
+    const firstCard = storyCards[0];
+    const lastCard = storyCards[storyCards.length - 1];
+    const startTranslation = firstCard
+      ? window.innerWidth / 2 -
+        (storyTrack.offsetLeft + firstCard.offsetLeft + firstCard.offsetWidth / 2)
+      : 0;
+    const endTranslation = lastCard
+      ? window.innerWidth / 2 -
+        (storyTrack.offsetLeft + lastCard.offsetLeft + lastCard.offsetWidth / 2)
+      : -Math.max(0, storyTrack.scrollWidth - storySticky.clientWidth);
+    const translation =
+      startTranslation + (endTranslation - startTranslation) * progress;
+    storyTrack.style.transform = `translate3d(${translation.toFixed(2)}px, 0, 0)`;
+    if (storyProgress) {
+      storyProgress.style.transform = `scaleX(${progress.toFixed(4)})`;
     }
 
-    Array.from(section.children).forEach((directChild) => {
-      let textGroup = null;
-      if (directChild.matches(textGroupSelector)) {
-        textGroup = directChild;
-      } else if (directChild.matches('.instruction-heading-row')) {
-        textGroup = directChild.querySelector('.section-heading');
-      }
-
-      if (textGroup) {
-        textGroup.classList.add('motion-group');
-        groups.push(textGroup);
-        Array.from(textGroup.children).forEach(addMotionItem);
-      } else {
-        addMotionItem(directChild);
-      }
-    });
-
-    sectionGroups.push(groups);
-    return items;
-  });
-
-  let updateFrame = 0;
-  let activeLogicalIndex = -1;
-  let introTimer = 0;
-  const motionStates = sections.map(() => ({ focus: -1, shift: 2 }));
-  document.body.classList.add('has-section-motion');
-  document.body.classList.add('is-site-entering');
-  introTimer = window.setTimeout(() => {
-    document.body.classList.remove('is-site-entering');
-    introTimer = 0;
-  }, 1450);
-
-  function renderNavigation(logicalIndex) {
-    if (logicalIndex === activeLogicalIndex) return;
-    activeLogicalIndex = logicalIndex;
-    const activeId = originalSections[logicalIndex]?.id ?? '';
-
-    navigationLinks.forEach((link) => {
-      const active = activeId && link.getAttribute('href') === `#${activeId}`;
-      link.classList.toggle('is-current', Boolean(active));
-      if (active) {
-        link.setAttribute('aria-current', 'location');
-      } else {
-        link.removeAttribute('aria-current');
-      }
+    const viewportCenter = window.innerWidth / 2;
+    storyCards.forEach((card) => {
+      const rect = card.getBoundingClientRect();
+      const cardCenter = rect.left + rect.width / 2;
+      const normalizedDistance = clamp(
+        Math.abs(cardCenter - viewportCenter) / window.innerWidth,
+        0,
+        1
+      );
+      const direction = clamp(
+        (cardCenter - viewportCenter) / window.innerWidth,
+        -1,
+        1
+      );
+      const scale = 1 - normalizedDistance * 0.055;
+      card.style.opacity = String(1 - normalizedDistance * 0.38);
+      card.style.transform = `perspective(1200px) rotateY(${(-direction * 3.8).toFixed(2)}deg) scale(${scale.toFixed(4)})`;
     });
   }
 
-  function updateMotion() {
-    updateFrame = 0;
-    const surfaceTop = circularLoop
-      ? scrollSurface.getBoundingClientRect().top
-      : headerOffset();
-    const surfaceHeight = Math.max(
-      1,
-      circularLoop
-        ? scrollSurface.clientHeight
-        : window.innerHeight - headerOffset()
-    );
-    let strongestFocus = -1;
-    let strongestIndex = 0;
+  function updateInstructions() {
+    if (!instructionSection || instructionCards.length === 0) return;
+    const progress = sectionProgress(instructionSection);
+    const position = progress * (instructionCards.length - 1);
+    if (instructionProgress) {
+      instructionProgress.style.transform = `scaleX(${progress.toFixed(4)})`;
+    }
 
-    sections.forEach((section, sectionIndex) => {
-      const relativeTop =
-        (section.getBoundingClientRect().top - surfaceTop) / surfaceHeight;
-      const shift = Math.max(-1, Math.min(1, relativeTop));
-      const focus = Math.max(0, 1 - Math.min(1, Math.abs(relativeTop)));
+    instructionCards.forEach((card, index) => {
+      const delta = index - position;
+      const distance = Math.abs(delta);
+      const opacity = clamp(1 - distance * 0.7);
+      const scale = 1 - Math.min(0.16, distance * 0.075);
+      const translateY = delta * 72;
+      const translateZ = -distance * 125;
+      const rotateX = delta * -3.2;
 
-      if (focus > strongestFocus) {
-        strongestFocus = focus;
-        strongestIndex = sectionIndex;
-      }
-
-      const previousState = motionStates[sectionIndex];
-      const stateChanged =
-        Math.abs(previousState.focus - focus) > 0.001 ||
-        Math.abs(previousState.shift - shift) > 0.001;
-      if (!stateChanged) return;
-
-      previousState.focus = focus;
-      previousState.shift = shift;
-      section.style.setProperty('--section-focus', focus.toFixed(4));
-      section.style.setProperty(
-        '--section-glow-opacity',
-        (focus * 0.22).toFixed(4)
-      );
-      section.style.setProperty(
-        '--section-glow-y',
-        `${(shift * -42).toFixed(2)}px`
-      );
-      section.classList.toggle('is-motion-near', focus > 0.01);
-      section.classList.toggle('is-motion-active', focus > 0.72);
-
-      sectionItems[sectionIndex].forEach((item, itemIndex) => {
-        const visual = item.classList.contains('is-motion-visual');
-        const staggeredFocus = Math.max(
-          0,
-          Math.min(1, focus * 1.18 - itemIndex * 0.075)
-        );
-        const travel = visual
-          ? shift * (-30 - itemIndex * 3)
-          : shift * (46 + itemIndex * 7);
-        const scale = visual
-          ? 0.94 + staggeredFocus * 0.06
-          : 0.975 + staggeredFocus * 0.025;
-        const blur = (1 - staggeredFocus) * (visual ? 5 : 7);
-        const opacity = 0.08 + staggeredFocus * 0.92;
-        const rotate = visual ? shift * -2.2 : 0;
-
-        item.style.setProperty('--motion-y', `${travel.toFixed(2)}px`);
-        item.style.setProperty('--motion-scale', scale.toFixed(4));
-        item.style.setProperty('--motion-blur', `${blur.toFixed(2)}px`);
-        item.style.setProperty('--motion-opacity', opacity.toFixed(4));
-        item.style.setProperty('--motion-rotate-x', `${rotate.toFixed(2)}deg`);
-      });
+      card.classList.toggle('is-active', distance < 0.48);
+      card.style.zIndex = String(100 - Math.round(distance * 10));
+      card.style.opacity = opacity.toFixed(4);
+      card.style.transform =
+        `translate3d(0, ${translateY.toFixed(2)}px, ${translateZ.toFixed(2)}px) ` +
+        `rotateX(${rotateX.toFixed(2)}deg) scale(${scale.toFixed(4)})`;
+      card.style.pointerEvents = distance < 0.55 ? 'auto' : 'none';
     });
-
-    const logicalCount = Math.max(1, originalSections.length);
-    renderNavigation(strongestIndex % logicalCount);
   }
 
-  function scheduleMotionUpdate() {
-    if (updateFrame) return;
-    updateFrame = window.requestAnimationFrame(updateMotion);
-  }
+  function updateParallax() {
+    const scroll = window.scrollY;
+    if (heroDevice) {
+      heroDevice.style.transform = `translate3d(0, ${(scroll * 0.09).toFixed(2)}px, 0)`;
+    }
+    if (heroGrid) {
+      heroGrid.style.transform = `translate3d(0, ${(scroll * 0.035).toFixed(2)}px, 0)`;
+    }
 
-  function synchronizeAfterLoopRebase() {
-    if (updateFrame) window.cancelAnimationFrame(updateFrame);
-    updateFrame = 0;
-    updateMotion();
-  }
-
-  scrollSurface.addEventListener('scroll', scheduleMotionUpdate, {
-    passive: true,
-  });
-  scrollSurface.addEventListener(
-    'snapstat:loop-rebase',
-    synchronizeAfterLoopRebase
-  );
-  window.addEventListener('resize', scheduleMotionUpdate, { passive: true });
-  scheduleMotionUpdate();
-
-  return {
-    cleanup() {
-      scrollSurface.removeEventListener('scroll', scheduleMotionUpdate);
-      scrollSurface.removeEventListener(
-        'snapstat:loop-rebase',
-        synchronizeAfterLoopRebase
+    [
+      [customizeVisual, -0.055],
+      [paperImage, -0.04],
+    ].forEach(([element, speed]) => {
+      if (!(element instanceof HTMLElement)) return;
+      const rect = element.getBoundingClientRect();
+      const centerOffset =
+        rect.top + rect.height / 2 - window.innerHeight / 2;
+      element.style.setProperty(
+        '--scroll-parallax',
+        `${(centerOffset * speed).toFixed(2)}px`
       );
-      window.removeEventListener('resize', scheduleMotionUpdate);
-      if (updateFrame) window.cancelAnimationFrame(updateFrame);
-      if (introTimer) window.clearTimeout(introTimer);
-      document.body.classList.remove('has-section-motion');
-      document.body.classList.remove('is-site-entering');
-      navigationLinks.forEach((link) => {
-        link.classList.remove('is-current');
-        link.removeAttribute('aria-current');
-      });
-      sections.forEach((section, sectionIndex) => {
-        section.classList.remove(
-          'motion-section',
-          'is-motion-near',
-          'is-motion-active'
-        );
-        section.style.removeProperty('--section-focus');
-        section.style.removeProperty('--section-glow-opacity');
-        section.style.removeProperty('--section-glow-y');
-        sectionGroups[sectionIndex].forEach((group) => {
-          group.classList.remove('motion-group');
-        });
-        sectionItems[sectionIndex].forEach((item) => {
-          item.classList.remove('motion-item', 'is-motion-visual');
-          item.removeAttribute('data-motion-order');
-          item.style.removeProperty('--motion-y');
-          item.style.removeProperty('--motion-scale');
-          item.style.removeProperty('--motion-blur');
-          item.style.removeProperty('--motion-opacity');
-          item.style.removeProperty('--motion-rotate-x');
-        });
-      });
-    },
+    });
+  }
+
+  function render() {
+    frame = 0;
+    if (reducedMotionQuery.matches) return;
+    updateStory();
+    updateInstructions();
+    updateParallax();
+  }
+
+  function schedule() {
+    if (frame) return;
+    frame = window.requestAnimationFrame(render);
+  }
+
+  function clearMotionStyles() {
+    if (storyTrack) storyTrack.style.removeProperty('transform');
+    if (storyProgress) storyProgress.style.removeProperty('transform');
+    storyCards.forEach((card) => {
+      card.style.removeProperty('opacity');
+      card.style.removeProperty('transform');
+    });
+    if (instructionProgress) {
+      instructionProgress.style.removeProperty('transform');
+    }
+    instructionCards.forEach((card) => {
+      card.style.removeProperty('z-index');
+      card.style.removeProperty('opacity');
+      card.style.removeProperty('transform');
+      card.style.removeProperty('pointer-events');
+    });
+    heroDevice?.style.removeProperty('transform');
+    heroGrid?.style.removeProperty('transform');
+  }
+
+  function onReducedMotionChange(event) {
+    if (event.matches) clearMotionStyles();
+    else schedule();
+  }
+
+  window.addEventListener('scroll', schedule, { passive: true });
+  window.addEventListener('snapstat:smooth-scroll', schedule);
+  window.addEventListener('resize', schedule, { passive: true });
+  window.addEventListener('load', schedule, { once: true });
+  reducedMotionQuery.addEventListener?.('change', onReducedMotionChange);
+  schedule();
+
+  return () => {
+    window.removeEventListener('scroll', schedule);
+    window.removeEventListener('snapstat:smooth-scroll', schedule);
+    window.removeEventListener('resize', schedule);
+    window.removeEventListener('load', schedule);
+    reducedMotionQuery.removeEventListener?.('change', onReducedMotionChange);
+    if (frame) window.cancelAnimationFrame(frame);
+    clearMotionStyles();
   };
 }
 
-function initializeInteractiveMotion() {
-  const finePointerQuery = window.matchMedia(
-    '(hover: hover) and (pointer: fine)'
-  );
-  if (reducedMotionQuery.matches || !finePointerQuery.matches) return null;
+function initializePointerEffects() {
+  if (!finePointerQuery.matches || reducedMotionQuery.matches) return null;
 
-  const listeners = [];
-  const buttons = Array.from(document.querySelectorAll('main#top .button'));
-  const tiltPanels = Array.from(
-    document.querySelectorAll(
-      'main#top .hero-visual, main#top .form-preview, main#top .security-proof'
-    )
-  );
+  const dot = document.querySelector('.cursor-dot');
+  const ring = document.querySelector('.cursor-ring');
+  const magneticElements = Array.from(document.querySelectorAll('.magnetic'));
+  const tiltCards = Array.from(document.querySelectorAll('.tilt-card'));
+  if (!(dot instanceof HTMLElement) || !(ring instanceof HTMLElement)) {
+    return null;
+  }
 
-  buttons.forEach((button) => {
-    button.classList.add('is-magnetic');
-    const onPointerMove = (event) => {
-      const bounds = button.getBoundingClientRect();
-      const x = (event.clientX - (bounds.left + bounds.width / 2)) * 0.14;
-      const y = (event.clientY - (bounds.top + bounds.height / 2)) * 0.18;
-      button.style.setProperty('--magnetic-x', `${x.toFixed(2)}px`);
-      button.style.setProperty('--magnetic-y', `${y.toFixed(2)}px`);
+  let targetX = window.innerWidth / 2;
+  let targetY = window.innerHeight / 2;
+  let ringX = targetX;
+  let ringY = targetY;
+  let animationFrame = 0;
+
+  function animateCursor() {
+    ringX += (targetX - ringX) * 0.16;
+    ringY += (targetY - ringY) * 0.16;
+    dot.style.transform = `translate3d(${(targetX - 3.5).toFixed(2)}px, ${(targetY - 3.5).toFixed(2)}px, 0)`;
+    ring.style.transform = `translate3d(${(ringX - ring.offsetWidth / 2).toFixed(2)}px, ${(ringY - ring.offsetHeight / 2).toFixed(2)}px, 0)`;
+    animationFrame = window.requestAnimationFrame(animateCursor);
+  }
+
+  function onPointerMove(event) {
+    targetX = event.clientX;
+    targetY = event.clientY;
+  }
+
+  const removers = [listen(window, 'pointermove', onPointerMove)];
+
+  magneticElements.forEach((element) => {
+    const onMove = (event) => {
+      const bounds = element.getBoundingClientRect();
+      const x = (event.clientX - (bounds.left + bounds.width / 2)) * 0.16;
+      const y = (event.clientY - (bounds.top + bounds.height / 2)) * 0.2;
+      element.style.setProperty('--magnetic-x', `${x.toFixed(2)}px`);
+      element.style.setProperty('--magnetic-y', `${y.toFixed(2)}px`);
+      document.body.classList.add('cursor-active');
     };
-    const onPointerLeave = () => {
-      button.style.setProperty('--magnetic-x', '0px');
-      button.style.setProperty('--magnetic-y', '0px');
+    const onLeave = () => {
+      element.style.setProperty('--magnetic-x', '0px');
+      element.style.setProperty('--magnetic-y', '0px');
+      document.body.classList.remove('cursor-active');
     };
-    button.addEventListener('pointermove', onPointerMove);
-    button.addEventListener('pointerleave', onPointerLeave);
-    listeners.push(() => {
-      button.removeEventListener('pointermove', onPointerMove);
-      button.removeEventListener('pointerleave', onPointerLeave);
-      button.classList.remove('is-magnetic');
-      button.style.removeProperty('--magnetic-x');
-      button.style.removeProperty('--magnetic-y');
-    });
+    removers.push(
+      listen(element, 'pointermove', onMove),
+      listen(element, 'pointerleave', onLeave)
+    );
   });
 
-  tiltPanels.forEach((panel) => {
-    const image = panel.querySelector('img');
-    if (!image) return;
-    panel.classList.add('has-pointer-tilt');
-    const onPointerMove = (event) => {
-      const bounds = panel.getBoundingClientRect();
+  tiltCards.forEach((card) => {
+    const onMove = (event) => {
+      const bounds = card.getBoundingClientRect();
       const x = (event.clientX - bounds.left) / Math.max(1, bounds.width) - 0.5;
       const y = (event.clientY - bounds.top) / Math.max(1, bounds.height) - 0.5;
-      image.style.setProperty('--tilt-x', `${(-y * 5).toFixed(2)}deg`);
-      image.style.setProperty('--tilt-y', `${(x * 6).toFixed(2)}deg`);
+      card.style.setProperty('--tilt-x', `${(-y * 7).toFixed(2)}deg`);
+      card.style.setProperty('--tilt-y', `${(x * 8).toFixed(2)}deg`);
     };
-    const onPointerLeave = () => {
-      image.style.setProperty('--tilt-x', '0deg');
-      image.style.setProperty('--tilt-y', '0deg');
+    const onLeave = () => {
+      card.style.setProperty('--tilt-x', '0deg');
+      card.style.setProperty('--tilt-y', '0deg');
     };
-    panel.addEventListener('pointermove', onPointerMove);
-    panel.addEventListener('pointerleave', onPointerLeave);
-    listeners.push(() => {
-      panel.removeEventListener('pointermove', onPointerMove);
-      panel.removeEventListener('pointerleave', onPointerLeave);
-      panel.classList.remove('has-pointer-tilt');
-      image.style.removeProperty('--tilt-x');
-      image.style.removeProperty('--tilt-y');
-    });
+    removers.push(
+      listen(card, 'pointermove', onMove),
+      listen(card, 'pointerleave', onLeave)
+    );
   });
 
-  return {
-    cleanup() {
-      listeners.forEach((removeListener) => removeListener());
-    },
+  animationFrame = window.requestAnimationFrame(animateCursor);
+
+  return () => {
+    removers.forEach((remove) => remove());
+    if (animationFrame) window.cancelAnimationFrame(animationFrame);
+    document.body.classList.remove('cursor-active');
+    magneticElements.forEach((element) => {
+      element.style.removeProperty('--magnetic-x');
+      element.style.removeProperty('--magnetic-y');
+    });
+    tiltCards.forEach((card) => {
+      card.style.removeProperty('--tilt-x');
+      card.style.removeProperty('--tilt-y');
+    });
   };
 }
 
-function initializeAnchorNavigation(instructions, circularLoop) {
+function initializeImageZoom() {
+  if (!finePointerQuery.matches) return null;
+
+  const figures = Array.from(document.querySelectorAll('[data-zoomable]'));
+  const removers = [];
+
+  figures.forEach((figure) => {
+    const image = figure.querySelector('img');
+    const preview = figure.querySelector('.image-zoom-preview');
+    if (!(image instanceof HTMLImageElement) || !(preview instanceof HTMLElement)) {
+      return;
+    }
+
+    const syncImage = () => {
+      preview.style.backgroundImage = `url("${image.currentSrc || image.src}")`;
+    };
+
+    const onPointerEnter = () => {
+      syncImage();
+      figure.classList.add('is-zooming');
+    };
+
+    const onPointerMove = (event) => {
+      const bounds = image.getBoundingClientRect();
+      const x = clamp((event.clientX - bounds.left) / Math.max(1, bounds.width));
+      const y = clamp((event.clientY - bounds.top) / Math.max(1, bounds.height));
+      const safeX = clamp(x, 0.12, 0.88);
+      const safeY = clamp(y, 0.12, 0.88);
+
+      figure.style.setProperty('--zoom-left', `${(safeX * 100).toFixed(2)}%`);
+      figure.style.setProperty('--zoom-top', `${(safeY * 100).toFixed(2)}%`);
+      preview.style.backgroundPosition = `${(x * 100).toFixed(2)}% ${(y * 100).toFixed(2)}%`;
+    };
+
+    const onPointerLeave = () => figure.classList.remove('is-zooming');
+
+    removers.push(
+      listen(figure, 'pointerenter', onPointerEnter),
+      listen(figure, 'pointermove', onPointerMove),
+      listen(figure, 'pointerleave', onPointerLeave),
+      listen(image, 'load', syncImage)
+    );
+    syncImage();
+  });
+
+  return () => {
+    removers.forEach((remove) => remove());
+    figures.forEach((figure) => {
+      figure.classList.remove('is-zooming');
+      figure.style.removeProperty('--zoom-left');
+      figure.style.removeProperty('--zoom-top');
+    });
+  };
+}
+
+function initializeMobileImageViewer() {
+  const coarsePointer = window.matchMedia('(hover: none), (pointer: coarse)');
+  const viewer = document.querySelector('.mobile-image-viewer');
+  const viewerImage = viewer?.querySelector('img');
+  const closeButton = viewer?.querySelector('.mobile-image-viewer-close');
+  const triggers = Array.from(document.querySelectorAll('[data-mobile-lightbox]'));
+  if (
+    !coarsePointer.matches ||
+    !viewer ||
+    !viewerImage ||
+    !closeButton ||
+    triggers.length === 0
+  ) {
+    return null;
+  }
+
+  let returnFocus = null;
+
+  function closeViewer() {
+    viewer.hidden = true;
+    viewerImage.removeAttribute('src');
+    viewerImage.alt = '';
+    document.body.classList.remove('mobile-image-viewer-open');
+    returnFocus?.focus?.();
+    returnFocus = null;
+  }
+
+  function openViewer(trigger) {
+    if (!coarsePointer.matches) return;
+    const image = trigger.querySelector('img');
+    if (!(image instanceof HTMLImageElement)) return;
+    returnFocus = trigger;
+    viewerImage.src = image.currentSrc || image.src;
+    viewerImage.alt = image.alt || 'Expanded image';
+    viewer.hidden = false;
+    document.body.classList.add('mobile-image-viewer-open');
+    closeButton.focus();
+  }
+
+  const removers = triggers.map((trigger) => {
+    trigger.tabIndex = 0;
+    trigger.setAttribute('role', 'button');
+    const onClick = () => openViewer(trigger);
+    const onKeyDown = (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        openViewer(trigger);
+      }
+    };
+    return [
+      listen(trigger, 'click', onClick),
+      listen(trigger, 'keydown', onKeyDown),
+    ];
+  }).flat();
+
+  const onBackdropClick = (event) => {
+    if (event.target === viewer) closeViewer();
+  };
+  const onKeyDown = (event) => {
+    if (event.key === 'Escape' && !viewer.hidden) closeViewer();
+  };
+
+  removers.push(
+    listen(closeButton, 'click', closeViewer),
+    listen(viewer, 'click', onBackdropClick),
+    listen(window, 'keydown', onKeyDown)
+  );
+
+  return () => {
+    closeViewer();
+    removers.forEach((remove) => remove());
+    triggers.forEach((trigger) => {
+      trigger.removeAttribute('role');
+      trigger.removeAttribute('tabindex');
+    });
+  };
+}
+
+function initializeAnchorScrolling() {
   const links = Array.from(document.querySelectorAll('a[href^="#"]'));
   const listeners = [];
+  const header = document.querySelector('.site-header');
+  let landingObserver = null;
+  let landingTimer = 0;
+
+  function anchorDestination(target) {
+    const headerHeight = header?.offsetHeight ?? 0;
+    const bounds = target.getBoundingClientRect();
+    const targetTop = window.scrollY + bounds.top;
+
+    if (target.matches('.hero, .horizontal-story, .instructions')) {
+      return Math.max(0, targetTop);
+    }
+
+    if (target.matches('.customize')) {
+      const context = target.querySelector('.customize-copy') || target;
+      const contextTop = window.scrollY + context.getBoundingClientRect().top;
+      return Math.max(0, contextTop - headerHeight - 16);
+    }
+
+    const availableHeight = Math.max(1, window.innerHeight - headerHeight);
+    const availableCenter = headerHeight + availableHeight / 2;
+    return Math.max(0, targetTop + bounds.height / 2 - availableCenter);
+  }
+
+  function settleLanding(target) {
+    const correctPosition = () => {
+      const correctedDestination = anchorDestination(target);
+      activeLenis?.resize?.();
+      if (activeLenis && !reducedMotionQuery.matches) {
+        activeLenis.scrollTo(correctedDestination, {
+          immediate: true,
+          force: true,
+        });
+      } else {
+        window.scrollTo({ top: correctedDestination, behavior: 'auto' });
+      }
+      header?.classList.remove('is-hidden');
+    };
+
+    window.clearTimeout(landingTimer);
+    landingObserver?.disconnect();
+    landingObserver = null;
+    correctPosition();
+
+    if (typeof ResizeObserver === 'function') {
+      landingObserver = new ResizeObserver(() => {
+        window.requestAnimationFrame(correctPosition);
+      });
+      landingObserver.observe(document.body);
+    }
+
+    landingTimer = window.setTimeout(() => {
+      correctPosition();
+      landingObserver?.disconnect();
+      landingObserver = null;
+      document.body.classList.remove('is-navigating');
+      landingTimer = 0;
+    }, 700);
+  }
 
   links.forEach((link) => {
     const onClick = (event) => {
@@ -1148,207 +921,50 @@ function initializeAnchorNavigation(instructions, circularLoop) {
       if (!selector || selector === '#') return;
       const target = document.querySelector(selector);
       if (!target) return;
-
       event.preventDefault();
-      if (target.id === 'instructions') instructions?.first();
-
-      const navigate = () => {
-        if (circularLoop) {
-          circularLoop.scrollTo(
-            circularLoop.sectionTarget(target),
-            reducedMotionQuery.matches ? 'auto' : 'smooth'
-          );
-        } else {
-          window.scrollTo({
-            top: Math.max(0, target.offsetTop - headerOffset()),
-            left: 0,
-            behavior: reducedMotionQuery.matches ? 'auto' : 'smooth',
-          });
-        }
-      };
-
-      navigate();
+      const destination = anchorDestination(target);
+      document.body.classList.add('is-navigating');
+      header?.classList.remove('is-hidden');
+      if (window.history?.replaceState) {
+        window.history.replaceState(null, '', selector);
+      }
+      if (activeLenis && !reducedMotionQuery.matches) {
+        activeLenis.scrollTo(destination, {
+          duration: 1.05,
+          onComplete: () => settleLanding(target),
+        });
+      } else {
+        window.scrollTo({
+          top: destination,
+          behavior: reducedMotionQuery.matches ? 'auto' : 'smooth',
+        });
+        landingTimer = window.setTimeout(() => settleLanding(target), 1100);
+      }
     };
-
     link.addEventListener('click', onClick);
     listeners.push(() => link.removeEventListener('click', onClick));
   });
 
-  return () => listeners.forEach((removeListener) => removeListener());
-}
-
-function initializeUpdatesCarousel() {
-  const track = document.querySelector('main#top .updates-track');
-  const viewport = document.querySelector('main#top .updates-viewport');
-  if (!track || !viewport) return null;
-
-  let updateOffset = 0;
-  let lastFrame = 0;
-  let animationFrame = 0;
-  let paused = reducedMotionQuery.matches;
-  let dragging = false;
-  let dragStartY = 0;
-  let resumeTimer = 0;
-  const speed = 30;
-
-  function gap() {
-    return Number.parseFloat(window.getComputedStyle(track).gap) || 0;
-  }
-
-  function cardStep(card) {
-    return card ? card.getBoundingClientRect().height + gap() : 0;
-  }
-
-  function applyOffset() {
-    track.style.transform = `translateY(${-updateOffset}px)`;
-  }
-
-  function normalize() {
-    let first = track.firstElementChild;
-    let firstStep = cardStep(first);
-    while (first && firstStep > 0 && updateOffset >= firstStep) {
-      updateOffset -= firstStep;
-      track.appendChild(first);
-      first = track.firstElementChild;
-      firstStep = cardStep(first);
-    }
-
-    while (updateOffset < 0) {
-      const last = track.lastElementChild;
-      const lastStep = cardStep(last);
-      if (!last || lastStep <= 0) break;
-      track.prepend(last);
-      updateOffset += lastStep;
-    }
-  }
-
-  function moveBy(delta) {
-    updateOffset += delta;
-    normalize();
-    applyOffset();
-  }
-
-  function pause() {
-    paused = true;
-    window.clearTimeout(resumeTimer);
-  }
-
-  function resumeSoon(delay = 900) {
-    if (reducedMotionQuery.matches) return;
-    window.clearTimeout(resumeTimer);
-    resumeTimer = window.setTimeout(() => {
-      if (!dragging) paused = false;
-    }, delay);
-  }
-
-  function animate(timestamp) {
-    animationFrame = 0;
-    if (!lastFrame) lastFrame = timestamp;
-    const elapsed = timestamp - lastFrame;
-    lastFrame = timestamp;
-    if (!paused && !dragging) moveBy((speed * elapsed) / 1000);
-    if (!reducedMotionQuery.matches) {
-      animationFrame = window.requestAnimationFrame(animate);
-    }
-  }
-
-  function startAnimation() {
-    if (animationFrame || reducedMotionQuery.matches) return;
-    lastFrame = 0;
-    animationFrame = window.requestAnimationFrame(animate);
-  }
-
-  function onWheel(event) {
-    if (Math.abs(event.deltaY) < 8 || event.ctrlKey) return;
-    event.preventDefault();
-    event.stopPropagation();
-    pause();
-    moveBy(event.deltaY * 0.9);
-    resumeSoon();
-  }
-
-  function onPointerDown(event) {
-    dragging = true;
-    dragStartY = event.clientY;
-    pause();
-    track.classList.add('is-dragging');
-    viewport.setPointerCapture(event.pointerId);
-  }
-
-  function onPointerMove(event) {
-    if (!dragging) return;
-    const delta = event.clientY - dragStartY;
-    dragStartY = event.clientY;
-    moveBy(-delta);
-  }
-
-  function finishDrag(event) {
-    if (!dragging) return;
-    dragging = false;
-    track.classList.remove('is-dragging');
-    if (viewport.hasPointerCapture?.(event.pointerId)) {
-      viewport.releasePointerCapture(event.pointerId);
-    }
-    resumeSoon();
-  }
-
-  function onReducedMotionChange(event) {
-    paused = event.matches;
-    if (event.matches) {
-      if (animationFrame) window.cancelAnimationFrame(animationFrame);
-      animationFrame = 0;
-    } else {
-      resumeSoon(0);
-      startAnimation();
-    }
-  }
-
-  function onMouseLeave() {
-    resumeSoon(120);
-  }
-
-  viewport.addEventListener('wheel', onWheel, { passive: false });
-  viewport.addEventListener('pointerdown', onPointerDown);
-  viewport.addEventListener('pointermove', onPointerMove);
-  viewport.addEventListener('pointerup', finishDrag);
-  viewport.addEventListener('pointercancel', finishDrag);
-  viewport.addEventListener('mouseenter', pause);
-  viewport.addEventListener('mouseleave', onMouseLeave);
-  reducedMotionQuery.addEventListener?.('change', onReducedMotionChange);
-  applyOffset();
-  startAnimation();
-
   return () => {
-    viewport.removeEventListener('wheel', onWheel);
-    viewport.removeEventListener('pointerdown', onPointerDown);
-    viewport.removeEventListener('pointermove', onPointerMove);
-    viewport.removeEventListener('pointerup', finishDrag);
-    viewport.removeEventListener('pointercancel', finishDrag);
-    viewport.removeEventListener('mouseenter', pause);
-    viewport.removeEventListener('mouseleave', onMouseLeave);
-    reducedMotionQuery.removeEventListener?.('change', onReducedMotionChange);
-    window.clearTimeout(resumeTimer);
-    if (animationFrame) window.cancelAnimationFrame(animationFrame);
+    listeners.forEach((remove) => remove());
+    window.clearTimeout(landingTimer);
+    landingObserver?.disconnect();
+    document.body.classList.remove('is-navigating');
   };
 }
 
-registerCleanup(initializeDownloadFeedback());
-
-const instructions = initializeInstructionHorizontalScroll();
-registerCleanup(instructions?.cleanup);
-
-const circularLoop = initializeCircularVerticalScroll();
-registerCleanup(circularLoop?.cleanup);
-
-const sectionMotion = initializeSectionMotion(circularLoop);
-registerCleanup(sectionMotion?.cleanup);
-const interactiveMotion = initializeInteractiveMotion();
-registerCleanup(interactiveMotion?.cleanup);
-
-const sectionSnapping = initializeSectionSnapping(instructions, circularLoop);
-registerCleanup(sectionSnapping?.cleanup);
-registerCleanup(initializeAnchorNavigation(instructions, circularLoop));
-registerCleanup(initializeUpdatesCarousel());
+initializeSplitText();
+registerCleanup(initializeThemeToggle());
+registerCleanup(initializePreloader());
+registerCleanup(initializeRevealObserver());
+registerCleanup(initializeMenu());
+registerCleanup(initializeAnimationBridge());
+registerCleanup(initializeHeaderMotion());
+registerCleanup(initializeScrollScenes());
+registerCleanup(initializePointerEffects());
+registerCleanup(initializeImageZoom());
+registerCleanup(initializeMobileImageViewer());
+registerCleanup(initializeAnchorScrolling());
 
 window.addEventListener('pagehide', (event) => {
   if (event.persisted) return;
