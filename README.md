@@ -10,7 +10,6 @@ This repository contains the official static website for **SnapStat**, an Androi
 - Printable form explanation
 - VirusTotal safety proof
 - Scan instructions
-- Update logs
 - APK download button
 
 ## Owner Message

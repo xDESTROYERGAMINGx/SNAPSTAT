@@ -1,48 +1,68 @@
-const ALLOWED_DOWNLOAD_HOSTS = new Set([
-  'github.com',
-  'objects.githubusercontent.com',
-  'release-assets.githubusercontent.com',
-]);
+export async function onRequestGet({ env }) {
+  const target = env.APK_DOWNLOAD_URL;
 
-function downloadRedirect({ env }) {
-  const configuredUrl = env.APK_DOWNLOAD_URL?.trim();
-
-  if (!configuredUrl) {
-    return new Response('The APK download is not configured yet.', {
+  if (!target) {
+    return new Response('Download is not configured.', {
       status: 503,
-      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      headers: {
+        'content-type': 'text/plain; charset=utf-8',
+        'cache-control': 'no-store',
+      },
     });
   }
 
-  let target;
+  let url;
   try {
-    target = new URL(configuredUrl);
+    url = new URL(target);
   } catch {
-    return new Response('The configured APK download URL is invalid.', {
+    return new Response('Download URL is invalid.', {
       status: 500,
-      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      headers: {
+        'content-type': 'text/plain; charset=utf-8',
+        'cache-control': 'no-store',
+      },
     });
   }
 
-  if (
-    target.protocol !== 'https:' ||
-    !ALLOWED_DOWNLOAD_HOSTS.has(target.hostname.toLowerCase())
-  ) {
-    return new Response('The configured APK download host is not allowed.', {
+  if (url.protocol !== 'https:') {
+    return new Response('Download URL must use HTTPS.', {
       status: 500,
-      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+      headers: {
+        'content-type': 'text/plain; charset=utf-8',
+        'cache-control': 'no-store',
+      },
     });
   }
 
-  return new Response(null, {
-    status: 302,
+  const upstream = await fetch(url.toString(), {
     headers: {
-      Location: target.href,
-      'Cache-Control': 'no-store',
-      'X-Content-Type-Options': 'nosniff',
+      'user-agent': 'SnapStat website download proxy',
+      accept: 'application/vnd.android.package-archive, application/octet-stream, */*',
     },
+    redirect: 'follow',
+  });
+
+  if (!upstream.ok || !upstream.body) {
+    return new Response('Download is temporarily unavailable.', {
+      status: 502,
+      headers: {
+        'content-type': 'text/plain; charset=utf-8',
+        'cache-control': 'no-store',
+      },
+    });
+  }
+
+  const headers = new Headers();
+  headers.set('content-type', 'application/vnd.android.package-archive');
+  headers.set('content-disposition', 'attachment; filename="snapstat.apk"');
+  headers.set('cache-control', 'no-store');
+  headers.set('x-content-type-options', 'nosniff');
+
+  const contentLength = upstream.headers.get('content-length');
+  if (contentLength) headers.set('content-length', contentLength);
+
+  return new Response(upstream.body, {
+    status: 200,
+    headers,
   });
 }
-
-export const onRequestGet = downloadRedirect;
-export const onRequestHead = downloadRedirect;
