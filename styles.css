@@ -2465,8 +2465,11 @@ body.mobile-image-viewer-open {
   }
 
   .preloader-status {
+    grid-template-columns: auto 14px auto 14px auto;
     justify-content: center;
     gap: 7px;
+    margin-right: auto;
+    margin-left: auto;
   }
 
   .preloader-status i {
