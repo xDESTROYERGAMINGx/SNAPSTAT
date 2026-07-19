@@ -373,15 +373,29 @@ function initializeAnimationBridge() {
   gsap.registerPlugin(ScrollTrigger);
   const touchDevice =
     'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  const iosDevice =
+    /iP(?:ad|hone|od)/.test(navigator.userAgent) ||
+    (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1);
+  const iosVersionMatch = navigator.userAgent.match(/(?:OS|Version) (\d+)[._]/);
+  const iosMajorVersion = iosVersionMatch
+    ? Number.parseInt(iosVersionMatch[1], 10)
+    : null;
+  /* Modern touch devices use the same interpolated scroll value as the
+     pinned scenes, so cards follow the finger instead of catching up in a
+     visible step. Legacy iOS keeps its safe native-scroll fallback. */
+  const synchronizeTouch =
+    touchDevice && (!iosDevice || iosMajorVersion === null || iosMajorVersion >= 16);
   const lenis = new Lenis({
     autoRaf: false,
     duration: 1.05,
     easing: (value) => 1 - Math.pow(1 - value, 3),
     lerp: 0.105,
     smoothWheel: true,
-    syncTouch: false,
+    syncTouch: synchronizeTouch,
+    syncTouchLerp: 0.11,
+    touchInertiaExponent: 1.65,
     wheelMultiplier: touchDevice ? 0.6 : 0.85,
-    touchMultiplier: touchDevice ? 1.2 : 1.1,
+    touchMultiplier: 1,
     anchors: false,
     stopInertiaOnNavigate: true,
     prevent: (node) =>
@@ -465,6 +479,9 @@ function initializeScrollScenes() {
   const storyProgress = storySection?.querySelector('.story-progress span');
 
   const instructionSection = document.querySelector('.instructions');
+  const instructionSticky = instructionSection?.querySelector(
+    '.instructions-sticky'
+  );
   const instructionCards = Array.from(
     instructionSection?.querySelectorAll('.instruction-card') ?? []
   );
@@ -475,19 +492,39 @@ function initializeScrollScenes() {
   const heroGrid = document.querySelector('.hero-grid');
   const customizeVisual = document.querySelector('.customize-visual');
   const paperImage = document.querySelector('.paper-stage > img');
+  const touchLayout =
+    'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
   let frame = 0;
+  let stableViewportWidth = window.innerWidth;
+  let stableViewportHeight = window.innerHeight;
 
-  function sectionProgress(section) {
+  function refreshViewportMetrics() {
+    const widthChanged =
+      Math.abs(window.innerWidth - stableViewportWidth) > 2;
+    /* On phones, browser chrome creates height-only resize events while the
+       user scrolls. Ignore those transient changes; a width change still
+       refreshes both values for rotation and real layout resizing. */
+    if (!touchLayout || widthChanged) {
+      stableViewportHeight = window.innerHeight;
+    }
+    stableViewportWidth = window.innerWidth;
+  }
+
+  function sectionProgress(section, stickyViewport) {
     if (!section) return 0;
     const rect = section.getBoundingClientRect();
-    const travel = Math.max(1, section.offsetHeight - window.innerHeight);
+    /* The sticky element uses 100svh, which stays stable while mobile browser
+       chrome expands or collapses. Reading its rendered height prevents a
+       height-only viewport resize from jumping the scene forward. */
+    const pinnedHeight = stickyViewport?.offsetHeight || window.innerHeight;
+    const travel = Math.max(1, section.offsetHeight - pinnedHeight);
     return clamp(-rect.top / travel);
   }
 
   function updateStory() {
     if (!storySection || !storySticky || !storyTrack) return;
-    const progress = sectionProgress(storySection);
+    const progress = sectionProgress(storySection, storySticky);
     const firstCard = storyCards[0];
     const lastCard = storyCards[storyCards.length - 1];
     const startTranslation = firstCard
@@ -527,7 +564,7 @@ function initializeScrollScenes() {
 
   function updateInstructions() {
     if (!instructionSection || instructionCards.length === 0) return;
-    const progress = sectionProgress(instructionSection);
+    const progress = sectionProgress(instructionSection, instructionSticky);
     const position = progress * (instructionCards.length - 1);
     if (instructionProgress) {
       instructionProgress.style.transform = `scaleX(${progress.toFixed(4)})`;
@@ -568,7 +605,7 @@ function initializeScrollScenes() {
       if (!(element instanceof HTMLElement)) return;
       const rect = element.getBoundingClientRect();
       const centerOffset =
-        rect.top + rect.height / 2 - window.innerHeight / 2;
+        rect.top + rect.height / 2 - stableViewportHeight / 2;
       element.style.setProperty(
         '--scroll-parallax',
         `${(centerOffset * speed).toFixed(2)}px`
@@ -587,6 +624,11 @@ function initializeScrollScenes() {
   function schedule() {
     if (frame) return;
     frame = window.requestAnimationFrame(render);
+  }
+
+  function onResize() {
+    refreshViewportMetrics();
+    schedule();
   }
 
   function clearMotionStyles() {
@@ -616,7 +658,7 @@ function initializeScrollScenes() {
 
   window.addEventListener('scroll', schedule, { passive: true });
   window.addEventListener('snapstat:smooth-scroll', schedule);
-  window.addEventListener('resize', schedule, { passive: true });
+  window.addEventListener('resize', onResize, { passive: true });
   window.addEventListener('load', schedule, { once: true });
   reducedMotionQuery.addEventListener?.('change', onReducedMotionChange);
   schedule();
@@ -624,7 +666,7 @@ function initializeScrollScenes() {
   return () => {
     window.removeEventListener('scroll', schedule);
     window.removeEventListener('snapstat:smooth-scroll', schedule);
-    window.removeEventListener('resize', schedule);
+    window.removeEventListener('resize', onResize);
     window.removeEventListener('load', schedule);
     reducedMotionQuery.removeEventListener?.('change', onReducedMotionChange);
     if (frame) window.cancelAnimationFrame(frame);
