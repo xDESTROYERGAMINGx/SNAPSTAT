@@ -1767,12 +1767,18 @@ body.mobile-image-viewer-open {
 }
 
 .download-orbit {
+  --orbit-line: rgba(18, 18, 24, 0.16);
+  --orbit-faint: rgba(18, 18, 24, 0.055);
+  --orbit-accent: rgba(57, 100, 244, 0.78);
   position: absolute;
   width: min(74vw, 1040px);
   aspect-ratio: 1;
-  border: 1px solid rgba(18, 18, 24, 0.16);
+  border: 1px solid var(--orbit-line);
+  border-top-color: var(--orbit-accent);
+  border-right-color: var(--orbit-faint);
   border-radius: 50%;
-  animation: orbit-spin 24s linear infinite;
+  animation: orbit-spin 18s linear infinite;
+  will-change: transform;
 }
 
 .download-orbit::before,
@@ -1780,17 +1786,38 @@ body.mobile-image-viewer-open {
   content: "";
   position: absolute;
   inset: 15%;
-  border: 1px dashed rgba(18, 18, 24, 0.17);
+  border: 1px dashed var(--orbit-line);
+  border-top-color: var(--orbit-accent);
   border-radius: 50%;
+  background: radial-gradient(
+    circle at 50% 0,
+    var(--orbit-accent) 0 5px,
+    transparent 6px
+  );
+  animation: orbit-spin-reverse 12s linear infinite;
+  will-change: transform;
 }
 
 .download-orbit::after {
   inset: 34%;
+  border-color: var(--orbit-line);
+  border-right-color: transparent;
+  border-bottom-color: var(--orbit-accent);
   border-style: solid;
+  background: radial-gradient(
+    circle at 100% 50%,
+    var(--orbit-accent) 0 4px,
+    transparent 5px
+  );
+  animation: orbit-spin 8s linear infinite;
 }
 
 @keyframes orbit-spin {
   to { transform: rotate(360deg); }
+}
+
+@keyframes orbit-spin-reverse {
+  to { transform: rotate(-360deg); }
 }
 
 .download > *:not(.download-orbit) {
@@ -2961,10 +2988,10 @@ html[data-theme="dark"] .instruction-card figcaption {
   border-color: var(--line-light);
 }
 
-html[data-theme="dark"] .download-orbit,
-html[data-theme="dark"] .download-orbit::before,
-html[data-theme="dark"] .download-orbit::after {
-  border-color: rgba(198, 207, 255, 0.2);
+html[data-theme="dark"] .download-orbit {
+  --orbit-line: rgba(198, 207, 255, 0.2);
+  --orbit-faint: rgba(198, 207, 255, 0.07);
+  --orbit-accent: rgba(121, 152, 255, 0.88);
 }
 
 html[data-theme="dark"] .virustotal-proof {
