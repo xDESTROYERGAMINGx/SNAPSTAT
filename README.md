@@ -21,6 +21,6 @@ Thank you for visiting the SnapStat website and for supporting the development o
 ## Current App Version Shown
 
 ```text
-0.1.2
+0.1.5
 ```
 
