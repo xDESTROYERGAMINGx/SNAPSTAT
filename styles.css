@@ -1696,13 +1696,13 @@ body.menu-open .menu-toggle-label {
 
 .virustotal-proof-wrap {
   display: block;
-  margin-top: 18px;
+  margin: 18px 0 0;
 }
 
 .virustotal-proof {
   width: 100%;
-  aspect-ratio: 841 / 184;
-  object-fit: cover;
+  height: auto;
+  object-fit: contain;
   background: var(--paper-muted);
   border: 1px solid var(--line-light);
   border-radius: 10px;
