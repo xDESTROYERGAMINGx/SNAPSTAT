@@ -1712,7 +1712,9 @@ body.menu-open .menu-toggle-label {
 .virustotal-proof {
   width: 100%;
   height: auto;
-  object-fit: contain;
+  aspect-ratio: 1772 / 304;
+  object-fit: cover;
+  object-position: center;
   background: var(--paper-muted);
   border: 1px solid var(--line-light);
   border-radius: 10px;
@@ -1922,10 +1924,11 @@ body.mobile-image-viewer-open {
   z-index: 1;
   width: 54px;
   height: 54px;
-  padding: 7px;
-  background: var(--paper);
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 14px;
+  padding: 0;
+  background: #f9f7ff;
+  border: 0;
+  border-radius: 12px;
+  object-fit: contain;
   animation: download-icon-float 2.8s ease-in-out infinite;
 }
 
@@ -3024,11 +3027,6 @@ html[data-theme="dark"] .download-button {
   color: #ffffff;
   background: var(--primary-deep);
   border-color: #7998ff;
-}
-
-html[data-theme="dark"] .download-button img {
-  background: var(--paper-muted);
-  border-color: rgba(255, 255, 255, 0.72);
 }
 
 @media (max-width: 520px) {
