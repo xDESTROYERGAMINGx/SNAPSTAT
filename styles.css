@@ -990,8 +990,10 @@ body.menu-open .menu-toggle-label {
   position: relative;
   z-index: 1;
   width: 100%;
+  height: auto;
   aspect-ratio: 1;
   object-fit: cover;
+  object-position: center top;
   border: 1px solid rgba(56, 64, 112, 0.16);
   border-radius: clamp(24px, 3vw, 44px);
   box-shadow: 0 38px 90px rgba(56, 64, 112, 0.22);
@@ -1302,6 +1304,13 @@ body.menu-open .menu-toggle-label {
 
 .story-card:not(.story-card-intro) img {
   width: min(100%, 460px);
+}
+
+.story-card .history-preview {
+  height: auto;
+  aspect-ratio: 5 / 7;
+  object-fit: cover;
+  object-position: center top;
 }
 
 .story-export-pair {
@@ -1681,13 +1690,14 @@ body.menu-open .menu-toggle-label {
   gap: 20px;
   margin-top: 34px;
   padding: 17px 19px;
-  color: var(--paper);
-  background: var(--ink);
+  color: var(--ink);
+  background: var(--paper-muted);
+  border: 1px solid var(--line-light);
   border-radius: 12px;
 }
 
 .trust-pill span {
-  color: rgba(249, 247, 255, 0.78);
+  color: var(--muted-light);
 }
 
 .trust-pill strong {
@@ -2869,7 +2879,7 @@ html[data-theme="dark"] body.menu-open .site-header {
 
 html[data-theme="dark"] .brand img,
 html[data-theme="dark"] .preloader-mark {
-  background: #f9f7ff;
+  background: var(--paper-muted);
 }
 
 html[data-theme="dark"] .menu-overlay {
@@ -3017,7 +3027,7 @@ html[data-theme="dark"] .download-button {
 }
 
 html[data-theme="dark"] .download-button img {
-  background: #f9f7ff;
+  background: var(--paper-muted);
   border-color: rgba(255, 255, 255, 0.72);
 }
 

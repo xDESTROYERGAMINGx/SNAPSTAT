@@ -22,7 +22,7 @@ function listen(target, eventName, handler, options) {
 function initializeThemeToggle() {
   const toggle = document.querySelector('.theme-toggle');
   const themeMeta = document.querySelector('meta[name="theme-color"]');
-  const proofImage = document.querySelector('.virustotal-proof');
+  const themeAssets = document.querySelectorAll('[data-light-src][data-dark-src]');
   const systemTheme = window.matchMedia('(prefers-color-scheme: dark)');
   let transitionInProgress = false;
   if (!toggle) return null;
@@ -38,11 +38,11 @@ function initializeThemeToggle() {
   function applyTheme(theme, persist = false) {
     const nextTheme = theme === 'dark' ? 'dark' : 'light';
     document.documentElement.dataset.theme = nextTheme;
-    if (proofImage) {
-      proofImage.src = nextTheme === 'dark'
-        ? proofImage.dataset.darkSrc
-        : proofImage.dataset.lightSrc;
-    }
+    themeAssets.forEach((asset) => {
+      const source = nextTheme === 'dark' ? asset.dataset.darkSrc : asset.dataset.lightSrc;
+      const attribute = asset.tagName === 'LINK' ? 'href' : 'src';
+      if (asset.getAttribute(attribute) !== source) asset.setAttribute(attribute, source);
+    });
     toggle.checked = nextTheme === 'dark';
     toggle.setAttribute(
       'aria-label',
