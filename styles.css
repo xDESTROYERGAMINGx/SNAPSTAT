@@ -1704,6 +1704,22 @@ body.menu-open .menu-toggle-label {
   color: var(--lime);
 }
 
+.virustotal-report-link {
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+
+.virustotal-report-link:hover {
+  text-decoration-thickness: 2px;
+}
+
+.virustotal-report-link:focus-visible {
+  outline: 2px solid var(--lime);
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+
 .virustotal-proof-wrap {
   display: block;
   margin: 18px 0 0;
@@ -1712,8 +1728,8 @@ body.menu-open .menu-toggle-label {
 .virustotal-proof {
   width: 100%;
   height: auto;
-  aspect-ratio: 1772 / 304;
-  object-fit: cover;
+  aspect-ratio: auto;
+  object-fit: contain;
   object-position: center;
   background: var(--paper-muted);
   border: 1px solid var(--line-light);
